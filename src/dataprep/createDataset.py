@@ -48,12 +48,6 @@ def downSamplePtCld(points, maxNoofPts):
 
 
 def getSynthesisedTransform(angleLimit, translationLimit):
-    #omega_x = angleLimit*np.random.random_sample() - (angleLimit/2.0)
-    #omega_y = angleLimit*np.random.random_sample() - (angleLimit/2.0)
-    #omega_z = angleLimit*np.random.random_sample() - (angleLimit/2.0)
-    #tr_x = translationLimit*np.random.random_sample() - (translationLimit/2.0)
-    #tr_y = translationLimit*np.random.random_sample() - (translationLimit/2.0)
-    #tr_z = translationLimit*np.random.random_sample() - (translationLimit/2.0).
     [omega_x, omega_y, omega_z]  = np.random.uniform(low=-1*angleLimit, high=angleLimit, size=3)
     [tr_x, tr_y, tr_z] = np.random.uniform(low=-1*translationLimit, high=translationLimit, size=3)
 
