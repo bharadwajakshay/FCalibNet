@@ -280,7 +280,7 @@ class EfficientNet(nn.Module):
         elif purpose == 'lidar':
             sublayers.append(
                 Conv2dNormActivation(
-                    5, firstconv_output_channels, kernel_size=3, stride=2, norm_layer=norm_layer, activation_layer=nn.SiLU
+                    8, firstconv_output_channels, kernel_size=3, stride=2, norm_layer=norm_layer, activation_layer=nn.SiLU
                 )
             )
         elif purpose == 'camera':
