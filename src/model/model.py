@@ -4,6 +4,7 @@ from model.crossFeatureMatching import crossFeatureMatching
 from model.featureAnalysis import featureAnalysis
 from model.regressor import transRegression, rotRegression
 import torch
+import torchvision
 
 class fCalibNet(nn.Module):
     def __init__(self, *args, **kwargs) -> None:

@@ -4,14 +4,16 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-torch = "*"
-torchvision = "*"
+torch = "==2.1.0"
+torchvision = "==0.16.0"
+torchaudio = "==2.1.0"
 tqdm = "*"
 matplotlib = "*"
 scipy = "*"
+ninja = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.11"
-python_full_version = "3.11.4"
+python_version = "3.10"
+python_full_version = "3.10.12"

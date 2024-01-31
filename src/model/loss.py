@@ -3,6 +3,8 @@ import torch.nn as nn
 import numpy as np
 from common import tensorTools, pytorch3D 
 
+from external.Chamfer3D import dist_chamfer_3D
+
 class getLoss(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
