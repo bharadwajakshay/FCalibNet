@@ -6,7 +6,7 @@ class crossFeatureMatching(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         
-        channels = 512
+        channels = 1280*2
         kernelSize = 3
         padding = (1,1)
         stride = (1,1)

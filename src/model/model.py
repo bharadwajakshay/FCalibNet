@@ -5,14 +5,18 @@ from model.featureAnalysis import featureAnalysis
 from model.regressor import transRegression, rotRegression
 import torch
 import torchvision
+from model.efficientNet import Conv2dNormActivation
 
 class fCalibNet(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.colorEfficientNet = efficientNet.efficientnet_v2_camera_s()
+        self.colorEfficientNet = efficientNet.efficientnet_v2_s(weights=torchvision.models.EfficientNet_V2_S_Weights.DEFAULT)
         self.lidarEfficientNet = efficientNet.efficientnet_v2_lidar_s()
+        self.colorFeatureMapRed = nn.Sequential(*[Conv2dNormActivation(in_channels=1280, out_channels=1280,kernel_size=3,stride=2,activation_layer=nn.SiLU, norm_layer=nn.BatchNorm2d,padding=(2,1)),
+                                                 Conv2dNormActivation(in_channels=1280, out_channels=1280,kernel_size=3,stride=2,activation_layer=nn.SiLU,norm_layer=nn.BatchNorm2d)])
         self.crossFeatureMatching = crossFeatureMatching()
+        
         self.featureAnalysis = featureAnalysis()
         self.transRegression = transRegression()
         self.rotRegression = rotRegression()
@@ -21,7 +25,10 @@ class fCalibNet(nn.Module):
     
     def forward(self,colorImage, lidarImage):
         colorFeatureMap = self.colorEfficientNet(colorImage)
+        colorFeatureMap = self.colorFeatureMapRed(colorFeatureMap)
+
         lidarFeatureMap = self.lidarEfficientNet(lidarImage)
+        
 
         reorganizedLiDARFeatureMap = torch.empty_like(colorFeatureMap).unsqueeze(2)
         

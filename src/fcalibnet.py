@@ -76,6 +76,11 @@ def main():
     for epochs in range(0,config.training['epoch']):
         # put model in training mode
         model = model.train()
+        # Freeze the colormodel weights as pretrained weights are being used
+        model.colorEfficientNet = model.colorEfficientNet.eval()
+        for params in model.colorEfficientNet.parameters():
+            params.requires_grad = False
+
 
         #  get your data
         lossValueArray = torch.zeros(len(trainingDataLoader))
