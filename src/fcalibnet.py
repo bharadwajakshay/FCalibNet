@@ -41,10 +41,17 @@ def main():
             model = torch.nn.DataParallel(model)
         else:
             print('Training on a single GPU')
+            
+        if config.modelParallel:
+            if not torch.cuda.device_count()>1:
+                print("Only a single GPU is found. Cant train with model parallel mode")
+                exit(-1)
+            else:
+                print(f"{torch.cuda.device_count()} GPUS found. Enabling Model parallel training")
     else:
         device = 'cpu'
 
-    model = model.to(device)
+    #model = model.to(device) #ASB handeled in the model constructor
     loss = getLoss().to(device)
     
     # Setup optimizer
@@ -56,6 +63,14 @@ def main():
                 )
     
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode= 'min', patience= 3)
+
+    # Load the checkpoint
+    if config.training['loadFromCheckpoint']:
+        if os.path.exists(os.path.join(config.checkpointDir),config.chkPointFileName):
+            print("Found Checkpoint.. Loading the model weights")
+        else:
+            print("Unable to find checkpoint. Proceeding withoput loading the weights ")
+
 
 
     trainingData = dataLoader(config.datasetFile)

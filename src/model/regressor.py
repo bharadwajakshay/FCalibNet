@@ -6,7 +6,7 @@ class transRegression(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
     
-        channels = 7168
+        channels = 20608
     
         self.linerlayer1 = nn.Linear(channels, int(channels/2))
         self.linerlayer2 = nn.Linear(int(channels/2), int(channels/4))
@@ -33,7 +33,7 @@ class rotRegression(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
     
-        channels = 7168
+        channels = 20608
     
         self.linerlayer1 = nn.Linear(channels, int(channels/2))
         self.linerlayer2 = nn.Linear(int(channels/2), int(channels/4))

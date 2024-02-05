@@ -20,11 +20,16 @@ class getLoss(nn.Module):
         
     def forward(self, predTR, colorImg, lidarImg, lidarImgGT, gtTR, projMat):
         
+        lidarImg = lidarImg.to(predTR[0].device)
+        lidarImgGT = lidarImgGT.to(predTR[0].device)
+        gtTR = gtTR.to(predTR[0].device)
+        
         rot = pytorch3D.quaternion_to_matrix(predTR[0])
         transformationMat =  tensorTools.convSO3NTToSE3(rot,predTR[1])
         invTransformMat = tensorTools.calculateInvRTTensorWhole(transformationMat)
         transformedPoints = tensorTools.applyTransformationOnTensor(lidarImg[:,:3,:,:].transpose(1,3), invTransformMat)
-
+        
+        
         if ("WEUC" in self.loss) or ("EUC" in self.loss):
             # get Eucledian distance
             eucledeanDistance = torch.norm(lidarImgGT.transpose(1,3)[:,:,:,:3]-transformedPoints,2,dim=3)

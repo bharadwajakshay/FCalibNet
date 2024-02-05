@@ -11,15 +11,15 @@ class fCalibNet(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.colorEfficientNet = efficientNet.efficientnet_v2_s(weights=torchvision.models.EfficientNet_V2_S_Weights.DEFAULT)
-        self.lidarEfficientNet = efficientNet.efficientnet_v2_lidar_s()
+        self.colorEfficientNet = efficientNet.efficientnet_v2_s(weights=torchvision.models.EfficientNet_V2_S_Weights.DEFAULT).to('cuda:0')
+        self.lidarEfficientNet = efficientNet.efficientnet_v2_lidar_s().to('cuda:0')
         self.colorFeatureMapRed = nn.Sequential(*[Conv2dNormActivation(in_channels=1280, out_channels=1280,kernel_size=3,stride=2,activation_layer=nn.SiLU, norm_layer=nn.BatchNorm2d,padding=(2,1)),
-                                                 Conv2dNormActivation(in_channels=1280, out_channels=1280,kernel_size=3,stride=2,activation_layer=nn.SiLU,norm_layer=nn.BatchNorm2d)])
-        self.crossFeatureMatching = crossFeatureMatching()
+                                                 Conv2dNormActivation(in_channels=1280, out_channels=1280,kernel_size=3,stride=2,activation_layer=nn.SiLU,norm_layer=nn.BatchNorm2d)]).to('cuda:0')
+        #self.crossFeatureMatching = crossFeatureMatching()
         
-        self.featureAnalysis = featureAnalysis()
-        self.transRegression = transRegression()
-        self.rotRegression = rotRegression()
+        self.featureAnalysis = featureAnalysis().to('cuda:1')
+        self.transRegression = transRegression().to('cuda:1')
+        self.rotRegression = rotRegression().to('cuda:1')
 
 
     
@@ -40,18 +40,9 @@ class fCalibNet(nn.Module):
         
         reorganizedLiDARFeatureMap = reorganizedLiDARFeatureMap [:,:,1:,:,:]
         
-        compTensorStack = torch.empty((colorFeatureMap.shape[0],64, colorFeatureMap.shape[2], colorFeatureMap.shape[3])).unsqueeze(1).cuda()
         
-        for slice in range(0, reorganizedLiDARFeatureMap.shape[2]):
-            compTensor = torch.cat((colorFeatureMap,reorganizedLiDARFeatureMap[:,:,slice,:,:].squeeze(2)),dim=1)
-            x = self.crossFeatureMatching(compTensor)
-            compTensorStack = torch.cat((compTensorStack,x.unsqueeze(1)), dim=1)
-            
-            
-        compTensorStack = compTensorStack[:,1:,:,:,:]
-        compTensorStackResized = compTensorStack.reshape((compTensorStack.shape[0], compTensorStack.shape[1]*compTensorStack.shape[2],compTensorStack.shape[3],compTensorStack.shape[4]))
-        
-        x = self.featureAnalysis(compTensorStackResized)
+        stackedTensor = torch.cat((colorFeatureMap.unsqueeze(2),reorganizedLiDARFeatureMap), dim=2).to('cuda:1')
+        x = self.featureAnalysis(stackedTensor)
         x = x.flatten(start_dim=1)
         
         trans = self.transRegression(x)
