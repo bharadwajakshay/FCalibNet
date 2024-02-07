@@ -6,14 +6,14 @@ DDPT = False # Distributed Data Parallel Training
 DPT = False # Data Parallel Training
 modelParallel = True # Need this for Unet3D
 training = dict(
-    batchSize = 35,
+    batchSize = 20,
     epoch = 50,
     learningRate = 0.005,
     beta0 = 0.9,
     beta1 = 0.999,
     eps = 1e-08,
     decayRate = 1e-4,
-    loadFromCheckpoint = True
+    loadFromCheckpoint = False
 )
 chkPointFileName = '2024_2_3_21:18_ED_2.0538178968429563.pth'
 '''

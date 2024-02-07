@@ -17,17 +17,17 @@ class fCalibNet(nn.Module):
                                                  Conv2dNormActivation(in_channels=1280, out_channels=1280,kernel_size=3,stride=2,activation_layer=nn.SiLU,norm_layer=nn.BatchNorm2d)]).to('cuda:0')
         #self.crossFeatureMatching = crossFeatureMatching()
         
-        self.featureAnalysis = featureAnalysis().to('cuda:1')
+        self.featureAnalysis = featureAnalysis().to('cuda:0')
         self.transRegression = transRegression().to('cuda:1')
         self.rotRegression = rotRegression().to('cuda:1')
 
 
     
     def forward(self,colorImage, lidarImage):
-        colorFeatureMap = self.colorEfficientNet(colorImage)
-        colorFeatureMap = self.colorFeatureMapRed(colorFeatureMap)
+        colorFeatureMap = self.colorEfficientNet(colorImage.to('cuda:0'))
+        colorFeatureMap = self.colorFeatureMapRed(colorFeatureMap.to('cuda:0'))
 
-        lidarFeatureMap = self.lidarEfficientNet(lidarImage)
+        lidarFeatureMap = self.lidarEfficientNet(lidarImage.to('cuda:0'))
         
 
         reorganizedLiDARFeatureMap = torch.empty_like(colorFeatureMap).unsqueeze(2)
@@ -41,12 +41,12 @@ class fCalibNet(nn.Module):
         reorganizedLiDARFeatureMap = reorganizedLiDARFeatureMap [:,:,1:,:,:]
         
         
-        stackedTensor = torch.cat((colorFeatureMap.unsqueeze(2),reorganizedLiDARFeatureMap), dim=2).to('cuda:1')
+        stackedTensor = torch.cat((colorFeatureMap.unsqueeze(2),reorganizedLiDARFeatureMap), dim=2)
         x = self.featureAnalysis(stackedTensor)
         x = x.flatten(start_dim=1)
         
-        trans = self.transRegression(x)
-        rot = self.rotRegression(x)
+        trans = self.transRegression(x.to('cuda:1'))
+        rot = self.rotRegression(x.to('cuda:1'))
 
         return([rot, trans])
         

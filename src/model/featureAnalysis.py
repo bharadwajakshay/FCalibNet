@@ -10,7 +10,7 @@ class featureAnalysis(nn.Module):
         
         inchannels = 1280
         outchannels = 64
-        self.model = UNet3D(in_channels=inchannels, out_channels=outchannels)
+        self.model = ResidualUNet3D(in_channels=inchannels, out_channels=outchannels, pool_kernel_size=1)
         
     def forward(self,x):
         

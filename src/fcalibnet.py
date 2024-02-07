@@ -66,7 +66,7 @@ def main():
 
     # Load the checkpoint
     if config.training['loadFromCheckpoint']:
-        if os.path.exists(os.path.join(config.checkpointDir),config.chkPointFileName):
+        if os.path.exists(os.path.join(config.checkpointDir,config.chkPointFileName)):
             print("Found Checkpoint.. Loading the model weights")
         else:
             print("Unable to find checkpoint. Proceeding withoput loading the weights ")
@@ -122,6 +122,8 @@ def main():
             #          Backward Execution time = {(backwardTimeEnd.second + backwardTimeEnd.microsecond*1e-6 ) - (lossTimeEnd.second + lossTimeEnd.microsecond*1e-6)})")
             
             optimizer.step()
+            optimizer.zero_grad()
+            
             
             lossValueArray[dataBatch] = lossVal
 
