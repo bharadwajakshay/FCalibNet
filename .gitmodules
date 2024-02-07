@@ -3,4 +3,4 @@
 	url = git@github.com:bharadwajakshay/cylindricalLiDARProj.git
 [submodule "src/external/UNet3D"]
 	path = src/external/UNet3D
-	url = https://github.com/wolny/pytorch-3dunet.git
+	url = git@github.com:bharadwajakshay/pytorch-3dunet.git
