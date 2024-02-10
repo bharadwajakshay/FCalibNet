@@ -17,7 +17,6 @@ class dataLoader(Dataset):
         with open(self.datafile,'r') as jsonFile:
             self.data = json.load(jsonFile)
 
-        
 
         trainIdx = int(len(self.data)*0.8)
         #trainIdx = 100
