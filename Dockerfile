@@ -32,7 +32,10 @@ RUN pip3 install torch==2.1.0\
                  scipy \
                  tqdm \
                  matplotlib \
-                 ninja
+                 ninja \
+                 h5py
 
 COPY src /home/akshay/FCALIBNet/src
 WORKDIR /home/akshay/FCALIBNet
+
+RUN pip3 install src/external/UNet3D
