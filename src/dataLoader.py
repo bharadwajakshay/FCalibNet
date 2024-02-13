@@ -1,5 +1,7 @@
 import numpy as np
-from PIL import Image
+# Moving from PIL to opnvCV as PIL is much slower
+# from PIL import Image
+import cv2
 import json
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
@@ -22,7 +24,7 @@ class dataLoader(Dataset):
         #trainIdx = 100
 
         testIdx = int(len(self.data)*0.9)
-
+        #testIdx = 200
 
         if mode =='train':
             self.data = self.data[:trainIdx]
@@ -40,29 +42,33 @@ class dataLoader(Dataset):
         return(self.getItem(key))
     
     def readimgfromfilePIL(self,pathToFile,resizeRows=None, resizeCols=None):
-        image = Image.open(pathToFile)
-        image = image.convert('RGB')
-
+        # Moving from PIL to openCV
+        
+        image = cv2.imread(pathToFile,cv2.IMREAD_COLOR )
+    
         if resizeRows != None and resizeCols != None:
-            image = image.resize((resizeCols,resizeRows),Image.BICUBIC)
+            image = cv2.resize(image,(resizeCols,resizeRows),cv2.INTER_LINEAR)
 
         elif resizeRows != None and resizeCols == None:
-            resizeRatio = resizeRows/image.height
+            resizeRatio = resizeRows/image.shape[0]
             height = resizeRows
-            width = image.width * resizeRatio
-            image = image.resize((int(np.round(width)),height),Image.BICUBIC)
-        else:
-            resizeRatio = resizeCols/image.width
+            width = image.shape[1] * resizeRatio
+            image = cv2.resize(image,(int(np.round(width)),height),cv2.INTER_LINEAR)
+        elif resizeRows == None and resizeCols != None:
+            resizeRatio = resizeCols/image.shape[1]
             width = resizeCols
-            height = image.height * resizeRatio
-            image = image.resize((width,int(np.round(height))),Image.BICUBIC)
+            height = image.shape[0] * resizeRatio
+            image = cv2.resize(image,(width,int(np.round(height))),cv2.INTER_LINEAR)
 
-        return(image.width,image.height,image)
+        return(image.shape[1],image.shape[0],image)
     
     def readProjectionData(self,pathToFile):
         projectionData = np.fromfile(pathToFile,dtype=np.float64)
         
         return projectionData.reshape([64,900,-1])
+    
+    def readProjectionDataMemmap(self,pathToFile):        
+        return np.memmap(pathToFile,dtype=np.float64, mode='r', shape=(64,900,5))
     
     def readTransform(self,strTransform, mode='TR'):
         transform = strTransform.replace('[','').replace(']','').split('\n')
@@ -87,28 +93,24 @@ class dataLoader(Dataset):
     
     def getItem(self,key):
         
-        getItemStartTime = time.time()
+        #getItemStartTime = time.time()
         
         sample = self.data[key]
 
         trainImgFilename = sample['imageFP']
         trainProjectedPC = sample['deCalibDataFP']
         gndTruthPC = sample['groundTruthDataFP']
-        transfromRT = self.readTransform(sample['transformationMat'])
-        projectMat = self.readTransform(sample['projectionMat'],'PR')
-        
-        getcolorStartTime = time.time()
+        transfromRT = np.asarray(sample['transformationMat'])
+        projectMat = np.asarray(sample['projectionMat'])
                 
         __, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename, self.colorImageHeight, self.colorImageWidth)
+        #__, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename)
         colorImage = np.array(srcClrImg, dtype=np.float32)
-        getcolorEndTime = time.time()
 
-        trainPointCloud = self.readProjectionData(trainProjectedPC)
-        getpointsEndTime = time.time()
-        
-        goundTruthPointCloud = self.readProjectionData(gndTruthPC)
-        getgtpointsEndTime = time.time()
-        
+        trainPointCloud = np.array(self.readProjectionDataMemmap(trainProjectedPC))
+
+        goundTruthPointCloud = self.readProjectionDataMemmap(gndTruthPC)
+
 
         if _debug == True:
             ## Verification of range image
@@ -128,13 +130,16 @@ class dataLoader(Dataset):
             Image.fromarray(intensityTransformed.astype(np.uint8)).save('distortedPCIntensity.png')
             
             
-            colormap = plt.get_cmap('rainbow')
+            #colormap = plt.get_cmap('rainbow')
             
             
-        getItemEndTime = time.time()
+        #getItemEndTime = time.time()
         #print(f"total timeElapsed={getItemEndTime - getItemStartTime}, \
         #        time to fetch color image={getcolorEndTime - getcolorStartTime}, \
         #        time to fetch 1st PC = {getpointsEndTime - getcolorEndTime}, \
-        #        time to fetch 2nd PC = {getgtpointsEndTime - getpointsEndTime}")
+        #        time to fetch 1st PC MemMap = {getpointsmemMapEndTime - getpointsEndTime} \
+        #        time to fetch 2nd PC = {getgtpointsEndTime - getpointsmemMapEndTime}\
+        #        time to fetch 2nd PC MemMap= {getgtpointsmemMapEndTime - getgtpointsEndTime}")
+
 
         return([colorImage, trainPointCloud, goundTruthPointCloud, transfromRT, projectMat])
