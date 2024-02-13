@@ -29,6 +29,10 @@ class getLoss(nn.Module):
         invTransformMat = tensorTools.calculateInvRTTensorWhole(transformationMat)
         transformedPoints = tensorTools.applyTransformationOnTensor(lidarImg[:,:3,:,:].transpose(1,3), invTransformMat)
         
+        WEUCLoss = torch.tensor(0)
+        EUCLoss = torch.tensor(0)
+        CHAMPLoss = torch.tensor(0)
+        EMDLoss = torch.tensor(0)
         
         if ("WEUC" in self.loss) or ("EUC" in self.loss):
             # get Eucledian distance
@@ -51,11 +55,13 @@ class getLoss(nn.Module):
                 # get weight of the loss function
                 lossweight = self.lossWeight[self.loss.index("WEUC")]
 
-                pointloss = mean*lossweight
-            else:
+                WEUCLoss = mean*lossweight
+                
+            elif ("EUC" in self.loss):
                 mean = eucledeanDistance.view(eucledeanDistance.shape[0],-1).mean(-1,keepdim=True).mean()
                 lossweight = self.lossWeight[self.loss.index("EUC")]
-                pointloss = mean*lossweight
+                EUCLoss = mean*lossweight
+
 
         if ("CHAMP" in self.loss):
             # Get Champer distance'
@@ -65,9 +71,9 @@ class getLoss(nn.Module):
             d2 = torch.mean(torch.sqrt(d2))
             d = (d1 + d2) / 2
             lossweight = self.lossWeight[self.loss.index("CHAMP")]
-            pointloss = d * lossweight
+            CHAMPLoss = d * lossweight
         else:
-            pointloss = 0
+            CHAMPLoss = torch.tensor(0)
 
 
         if ("CHORDAL" in self.loss):
@@ -81,17 +87,19 @@ class getLoss(nn.Module):
 
             chordaLoss = lossweight * chordalDist.mean()
         else:
-            chordaLoss = 0
+            chordaLoss = torch.tensor(0)
 
         if ("EUCTR" in self.loss):
             eucledianMatDist = torch.linalg.norm(transformationMat[:,:3,3] - gtTR[:,:3,3],2,dim=1)
             lossweight = self.lossWeight[self.loss.index("EUCTR")]
             transfomTranslationLoss = lossweight * eucledianMatDist.mean()
         else:
-            transfomTranslationLoss = 0
+            transfomTranslationLoss = torch.tensor(0)
 
 
-        totalLoss = pointloss + chordaLoss + transfomTranslationLoss
+        totalLoss = WEUCLoss + EMDLoss.to(WEUCLoss.device) +\
+                    CHAMPLoss.to(WEUCLoss.device) + EUCLoss.to(WEUCLoss.device) +\
+                    chordaLoss.to(WEUCLoss.device) + transfomTranslationLoss.to(WEUCLoss.device)
         
         return(totalLoss)
         

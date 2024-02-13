@@ -384,7 +384,7 @@ def applyTransformationOnTensor(ptCloud, transform):
         ptCloud = ptCloud.reshape((ptCloud.shape[0], ptCloud.shape[1]*ptCloud.shape[2], ptCloud.shape[-1]))
 
     rot = transform[:, :3, :3]
-    ptCloud = torch.transpose(ptCloud,2,1)
+    ptCloud = torch.transpose(ptCloud,2,1).to(transform.device)
     
     transformed_points = torch.bmm(rot, ptCloud)
     

@@ -1,12 +1,12 @@
 import os
-datasetFile = "/mnt/data/kitti/calibration_20_0.1/calibData.json"
+datasetFile = "/home/akshay/kitti_Dataset_40_1/calibData.json"
 checkpointDir = os.path.join(os.getcwd(), 'checkpoints')
 logDir = os.path.join(os.getcwd(),'logs')
 DDPT = False # Distributed Data Parallel Training
 DPT = False # Data Parallel Training
 modelParallel = True # Need this for Unet3D
 training = dict(
-    batchSize = 20,
+    batchSize = 25,
     epoch = 50,
     learningRate = 0.005,
     beta0 = 0.9,
@@ -26,7 +26,7 @@ chkPointFileName = '2024_2_3_21:18_ED_2.0538178968429563.pth'
     "EUCTR" = Euclidean distance between the translation of the predicated transform and the ground truth
 '''
 
-loss = ["CHAMP","CHORDAL","EUCTR"]
+loss = ["WEUC","CHORDAL","EUCTR"]
 
 # Loss weight needs to be the same size as loss 
 lossWeight = [1.0, 0.7, 0.7]

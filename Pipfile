@@ -13,6 +13,7 @@ scipy = "*"
 ninja = "*"
 pytorch3dunet = {editable = true, path = "./src/external/UNet3D"}
 h5py = "*"
+opencv-python = "*"
 
 [dev-packages]
 

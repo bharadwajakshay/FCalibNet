@@ -7,11 +7,14 @@ from tqdm import tqdm
 import config
 
 def valitation(model, dataLoader, device):
-    simpleDistanceSE3 = np.empty(len(dataLoader))
-    eucledianDistance = np.empty(len(dataLoader))
+    simpleDistanceSE3 = np.empty((len(dataLoader)*config.training['batchSize'],3))
+    eucledianDistance = np.empty((len(dataLoader)*config.training['batchSize'],3))
     translation = np.empty((len(dataLoader)*config.training['batchSize'],3))
     eulerAngle = np.empty((len(dataLoader)*config.training['batchSize'],3))
-    
+    translationGT = np.empty((len(dataLoader)*config.training['batchSize'],3))
+    eulerAngleGT = np.empty((len(dataLoader)*config.training['batchSize'],3))
+    translationErr = np.empty((len(dataLoader)*config.training['batchSize'],3))
+    eulerAngleERR = np.empty((len(dataLoader)*config.training['batchSize'],3))
     
     for dataBatch, data in tqdm(enumerate(dataLoader,0),total=len(dataLoader)):
         
@@ -27,33 +30,43 @@ def valitation(model, dataLoader, device):
         
         predictedTR = tensorTools.convSO3NTToSE3(predRotMat,predTrans)
         
-        RtR = torch.bmm(tensorTools.calculateInvRTTensorWhole(predictedTR),gtTransfrom)
-        I = torch.eye(RtR.shape[1]).unsqueeze(0).to(device)
+        RtR = torch.bmm(tensorTools.calculateInvRTTensorWhole(predictedTR),gtTransfrom.to(predictedTR.device))
+        I = torch.eye(RtR.shape[1]).unsqueeze(0).to(RtR.device)
         I = I.repeat((RtR.shape[0],1,1))
         
         # Eucledian distance
         invTransformMat = tensorTools.calculateInvRTTensorWhole(predictedTR)
         transformedPoints = tensorTools.applyTransformationOnTensor(lidarImage[:,:3,:,:].transpose(1,3), invTransformMat)
-        eucledeanDist = torch.norm(gtLidarImage.transpose(1,3)[:,:,:,:3]-transformedPoints,2,dim=3)
+        eucledeanDist = torch.norm(gtLidarImage.transpose(1,3)[:,:,:,:3]-transformedPoints.to(gtLidarImage.device),2,dim=3)
         
-        SE3Dist = np.empty(RtR.shape[0])
-        eucledianDistanceBatch = np.empty(RtR.shape[0])
-        for idx in range(0,RtR.shape[0]):
-            SE3Dist[idx] = torch.norm((RtR[idx,:,:] - I[idx,:,:]),'fro').cpu().detach().numpy()
-            
-            #Rotation
-            rPred = R.from_matrix(predictedTR[idx,:3,:3].cpu().detach().numpy())
-            eulerAngle[idx,:] = rPred.as_euler('zxy', degrees=True)  
-            translation[idx,:] = predictedTR[idx,:3,3].cpu().detach().numpy()
+        # get angular error 
+        
+
+        for idx in range(0, RtR.shape[0]):
+            globalIdx = dataBatch*RtR.shape[0] + idx
+            simpleDistanceSE3[globalIdx] = torch.norm((RtR[idx,:,:] - I[idx,:,:]),'fro').cpu().detach().numpy()
             
             # Eucledean Distance
-            eucledianDistanceBatch[idx] =  torch.mean(eucledeanDist[idx,:,:]).detach().cpu().numpy()
+            eucledianDistance[globalIdx] =  torch.mean(eucledeanDist[idx,:,:]).detach().cpu().numpy()
             
+            # Rotation
+            rPred = R.from_matrix(predictedTR[idx,:3,:3].cpu().detach().numpy())
+            eulerAngle[globalIdx,:] = rPred.as_euler('zxy', degrees=True)
+
+            # Get GT rotation
+            rGT = R.from_matrix(gtTransfrom[idx,:3,:3].cpu().detach().numpy())
+            eulerAngleGT[globalIdx,:] = rGT.as_euler('zxy', degrees=True)
+
+            # Translation
+            translation[globalIdx,:] = predictedTR[idx,:3,3].cpu().detach().numpy()
+
+            # GT Translation
+            translationGT[globalIdx,:] = gtTransfrom[idx,:3,3].cpu().detach().numpy()
+            
+
         
-        simpleDistanceSE3[dataBatch] = np.mean(SE3Dist)
-        eucledianDistance[dataBatch] = np.mean(eucledianDistanceBatch)
+    absoluteAngularError = np.abs(eulerAngleGT - eulerAngle)
+    absoluteTranslationError = np.abs(translationGT - translation)
         
-        
-        
-    return(SE3Dist,eucledianDistance, translation, eulerAngle )    
+    return(simpleDistanceSE3,eucledianDistance, translation, eulerAngle, absoluteAngularError, absoluteTranslationError)    
         

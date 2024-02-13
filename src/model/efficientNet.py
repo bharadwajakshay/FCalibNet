@@ -274,7 +274,7 @@ class EfficientNet(nn.Module):
         if purpose != None:
             layers.append(
                 Conv2dNormActivation(
-                    8, 8, kernel_size=3, stride=1, norm_layer=norm_layer, activation_layer=nn.SiLU
+                    5, 8, kernel_size=3, stride=1, norm_layer=norm_layer, activation_layer=nn.SiLU
                 )
             )
             layers.append(

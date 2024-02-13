@@ -78,13 +78,13 @@ def main():
     trainingDataLoader = torch.utils.data.DataLoader(trainingData,
                                                      batch_size=config.training['batchSize'],
                                                      shuffle=True,
-                                                     num_workers=14,
+                                                     num_workers=10,
                                                      drop_last=True)
     
     validatingDataLoader = torch.utils.data.DataLoader(validationData,
                                                      batch_size=config.training['batchSize'],
                                                      shuffle=True,
-                                                     num_workers=14,
+                                                     num_workers=10,
                                                      drop_last=True)
 
     monitorDist = 10000000
@@ -132,12 +132,14 @@ def main():
         # Validation
         with torch.no_grad():
             model = model.eval()
-            SE3Dist, eucledianDist, translation, eulerAngle = valitation(model, validatingDataLoader, device)
+            SE3Dist, eucledianDist, translation, eulerAngle, absEulerAngleErr, absTranslationErr = valitation(model, validatingDataLoader, device)
             
         # Scheduler step
         scheduler.step(np.mean(eucledianDist))
         print(f"Mean loss value = {lossVal}")
-        print(f"Epoch: {epochs}\t Mean SE3 Dist = {np.mean(SE3Dist)} \t Mean Eucledian Distance = {np.mean(eucledianDist)}")
+        print(f"Epoch: {epochs}\t Mean SE3 Dist = {np.mean(SE3Dist):3f} \t Mean Eucledian Distance = {np.mean(eucledianDist):3f}")
+        print(f"Mean Absolute Errors: Euler angles: x={np.mean(absEulerAngleErr,1)[0]:3f}\u00b0, y={np.mean(absEulerAngleErr,1)[1]:3f}\u00b0, z={np.mean(absEulerAngleErr,1)[2]:3f}\u00b0\
+              \t Translation: x={np.mean(absTranslationErr,1)[0]:3f}m, y={np.mean(absTranslationErr,1)[1]:3f}m, z={np.mean(absTranslationErr,1)[2]:3f}m")
         
         if monitorDist > np.mean(eucledianDist):
             monitorDist = np.mean(eucledianDist)
