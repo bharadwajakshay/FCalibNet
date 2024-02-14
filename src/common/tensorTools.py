@@ -3,6 +3,7 @@ import torch
 from common.pytorch3D import *
 import numpy as np
 import math
+import logging
 
 def moveToDevice(tensor, device):
     # if device = -1 then it means its on CPU

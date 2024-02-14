@@ -6,6 +6,7 @@ import json
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 import time
+import logging
 
 _debug = False
 
@@ -13,6 +14,8 @@ _debug = False
 
 class dataLoader(Dataset):
     def __init__ (self, filename,  mode='train'):
+        logging.info(f"initializing data loader.")
+
         self.datafile = filename
         self.colorImageHeight = 224
         self.colorImageWidth = 740
@@ -20,11 +23,11 @@ class dataLoader(Dataset):
             self.data = json.load(jsonFile)
 
 
-        trainIdx = int(len(self.data)*0.8)
-        #trainIdx = 100
+        #trainIdx = int(len(self.data)*0.8)
+        trainIdx = 100
 
-        testIdx = int(len(self.data)*0.9)
-        #testIdx = 200
+        #testIdx = int(len(self.data)*0.9)
+        testIdx = 200
 
         if mode =='train':
             self.data = self.data[:trainIdx]
@@ -34,6 +37,12 @@ class dataLoader(Dataset):
        
         if mode =='evaluate':
             self.data = self.data[testIdx:]
+
+        logging.info(f"Dataloader details.\n \
+                     \t Filename:{filename}\n \
+                     \t Image Dimensions: {self.colorImageHeight}x{self.colorImageWidth}\n \
+                     \t Mode: {mode}\n \
+                     \t Data Length: {len(self.data)}")
 
     def __len__(self):
         return(len(self.data))
@@ -107,7 +116,7 @@ class dataLoader(Dataset):
         #__, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename)
         colorImage = np.array(srcClrImg, dtype=np.float32)
 
-        trainPointCloud = np.array(self.readProjectionDataMemmap(trainProjectedPC))
+        trainPointCloud = self.readProjectionDataMemmap(trainProjectedPC)
 
         goundTruthPointCloud = self.readProjectionDataMemmap(gndTruthPC)
 

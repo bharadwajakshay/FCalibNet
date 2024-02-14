@@ -6,6 +6,7 @@ from common import tensorTools, pytorch3D
 from external.Chamfer3D.dist_chamfer_3D import chamfer_3DDist
 
 import config
+import logging
 
 chamfer_dist = chamfer_3DDist()
 
@@ -16,7 +17,9 @@ class getLoss(nn.Module):
         self.loss = config.loss
         self.lossWeight = config.lossWeight
         
-        print("Initializing the loss function")
+        logging.info(f"Initializing the loss function. Loss details:\n \
+                     \t Loss Options:[{config.loss}]\n \
+                     \t Loss Weight: [{config.lossWeight}]")
         
     def forward(self, predTR, colorImg, lidarImg, lidarImgGT, gtTR, projMat):
         

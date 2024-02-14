@@ -3,10 +3,11 @@ from torch.autograd import Function
 import torch
 import importlib
 import os
+import logging
 chamfer_found = importlib.find_loader("chamfer_3D") is not None
 if not chamfer_found:
     ## Cool trick from https://github.com/chrdiller
-    print("Jitting Chamfer 3D")
+    logging.info("Jitting Chamfer 3D")
 
     os.environ['CUDA_HOME'] = "/usr/local/cuda"
 
@@ -16,11 +17,11 @@ if not chamfer_found:
               "/".join(os.path.abspath(__file__).split('/')[:-1] + ["chamfer_cuda.cpp"]),
               "/".join(os.path.abspath(__file__).split('/')[:-1] + ["chamfer3D.cu"]),
               ])
-    print("Loaded JIT 3D CUDA chamfer distance")
+    logging.info("Loaded JIT 3D CUDA chamfer distance")
 
 else:
     import chamfer_3D
-    print("Loaded compiled 3D CUDA chamfer distance")
+    logging.info("Loaded compiled 3D CUDA chamfer distance")
 
 
 # Chamfer's distance module @thibaultgroueix
