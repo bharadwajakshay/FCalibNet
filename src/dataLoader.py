@@ -23,11 +23,11 @@ class dataLoader(Dataset):
             self.data = json.load(jsonFile)
 
 
-        #trainIdx = int(len(self.data)*0.8)
-        trainIdx = 100
+        trainIdx = int(len(self.data)*0.8)
+        #trainIdx = 100
 
-        #testIdx = int(len(self.data)*0.9)
-        testIdx = 200
+        testIdx = int(len(self.data)*0.9)
+        #testIdx = 200
 
         if mode =='train':
             self.data = self.data[:trainIdx]
