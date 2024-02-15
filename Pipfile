@@ -4,9 +4,16 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-torch = "*"
-torchvision = "*"
+torch = "==2.1.0"
+torchvision = "==0.16.0"
+torchaudio = "==2.1.0"
 tqdm = "*"
+matplotlib = "*"
+scipy = "*"
+ninja = "*"
+pytorch3dunet = {editable = true, path = "./src/external/UNet3D"}
+h5py = "*"
+opencv-python = "*"
 
 [dev-packages]
 

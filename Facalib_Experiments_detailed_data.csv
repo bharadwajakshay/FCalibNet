@@ -1,0 +1,2 @@
+Sl. No,Epoch,Experiment,Mean Loss Value,Mean SE3 Distance,Mean Euclidean Dist,Git commit
+1,15,For loop is used to convolve each slice of the LiDAR image with the color image. Each one of those convolved slices are passed thru the Feature matching/Analysis to pick common features and the all the channels of different features are parallized to form n channels and a 2D conv layer is used. Both the EfficientNet networks are being learnt. ,91.9807408119427,2.83316140174866,11.9272705093472,commit: a3b85adefbd50a4c1336e246701935e6a4356718

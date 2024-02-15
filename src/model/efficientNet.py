@@ -40,7 +40,6 @@ __all__ = [
     "efficientnet_v2_s",
     "efficientnet_v2_m",
     "efficientnet_v2_l",
-    "efficientnet_v2_color_s",
     "efficientnet_v2_lidar_s",
 ]
 
@@ -240,10 +239,11 @@ class EfficientNet(nn.Module):
         num_classes: int = 1000,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
         last_channel: Optional[int] = None,
-        purpose: str = None
+        purpose: str = None #ASB
     ) -> None:
         """
         EfficientNet V1 and V2 main class
+
         Args:
             inverted_residual_setting (Sequence[Union[MBConvConfig, FusedMBConvConfig]]): Network structure
             dropout (float): The droupout probability
@@ -267,44 +267,42 @@ class EfficientNet(nn.Module):
             norm_layer = nn.BatchNorm2d
 
         layers: List[nn.Module] = []
-        sublayers: List[nn.Module] = []
 
+        # building first layer
         firstconv_output_channels = inverted_residual_setting[0].input_channels
-        if purpose == None:
-            # building first layer
-            sublayers.append(
+        # ASB
+        if purpose != None:
+            layers.append(
+                Conv2dNormActivation(
+                    5, 8, kernel_size=3, stride=1, norm_layer=norm_layer, activation_layer=nn.SiLU
+                )
+            )
+            layers.append(
+                Conv2dNormActivation(
+                    8, 12, kernel_size=3, stride=1, norm_layer=norm_layer, activation_layer=nn.SiLU
+                )
+            )
+            layers.append(
+                Conv2dNormActivation(
+                    12, 16, kernel_size=3, stride=1, norm_layer=norm_layer, activation_layer=nn.SiLU
+                )
+            )
+            layers.append(
+                Conv2dNormActivation(
+                    16, 20, kernel_size=3, stride=1, norm_layer=norm_layer, activation_layer=nn.SiLU
+                )
+            )
+            layers.append(
+                Conv2dNormActivation(
+                    20, 24, kernel_size=3, stride=2, norm_layer=norm_layer, activation_layer=nn.SiLU
+                )
+            )
+        else:
+            layers.append(
                 Conv2dNormActivation(
                     3, firstconv_output_channels, kernel_size=3, stride=2, norm_layer=norm_layer, activation_layer=nn.SiLU
                 )
             )
-        elif purpose == 'lidar':
-            sublayers.append(
-                Conv2dNormActivation(
-                    5, firstconv_output_channels, kernel_size=3, stride=2, norm_layer=norm_layer, activation_layer=nn.SiLU
-                )
-            )
-        elif purpose == 'camera':
-            sublayers.append(
-                Conv2dNormActivation(
-                    3, 8, kernel_size=3, stride=2, norm_layer=norm_layer, activation_layer=nn.SiLU
-                )
-            )
-            sublayers.append(
-                nn.AdaptiveAvgPool2d((426,128))
-            )
-            sublayers.append(
-                Conv2dNormActivation(
-                    8, 16, kernel_size=3, stride=2, norm_layer=norm_layer, activation_layer=nn.SiLU,padding=1
-                )
-            )
-            sublayers.append(
-                Conv2dNormActivation(
-                    16, firstconv_output_channels, kernel_size=3, stride=2, norm_layer=norm_layer, activation_layer=nn.SiLU,padding=1
-                )
-            )
-
-
-
 
         # building inverted residual blocks
         total_stage_blocks = sum(cnf.num_layers for cnf in inverted_residual_setting)
@@ -331,22 +329,19 @@ class EfficientNet(nn.Module):
         # building last several layers
         lastconv_input_channels = inverted_residual_setting[-1].out_channels
         lastconv_output_channels = last_channel if last_channel is not None else 4 * lastconv_input_channels
-
-        if purpose == None:
-            layers.append(
-                Conv2dNormActivation(
-                    lastconv_input_channels,
-                    lastconv_output_channels,
-                    kernel_size=1,
-                    norm_layer=norm_layer,
-                    activation_layer=nn.SiLU,
-                )
+        layers.append(
+            Conv2dNormActivation(
+                lastconv_input_channels,
+                lastconv_output_channels,
+                kernel_size=1,
+                norm_layer=norm_layer,
+                activation_layer=nn.SiLU,
             )
+        )
 
-        self.subfeatures = nn.Sequential(*sublayers)
         self.features = nn.Sequential(*layers)
 
-        if purpose == None:
+        if purpose == None: #ASB
             self.avgpool = nn.AdaptiveAvgPool2d(1)
             self.classifier = nn.Sequential(
                 nn.Dropout(p=dropout, inplace=True),
@@ -367,13 +362,12 @@ class EfficientNet(nn.Module):
                 nn.init.zeros_(m.bias)
 
     def _forward_impl(self, x: Tensor) -> Tensor:
-        x = self.subfeatures(x)
         x = self.features(x)
-        
-        # Ignored as we dont need this
-        #x = self.avgpool(x)
-        #x = torch.flatten(x, 1)
-        #x = self.classifier(x)
+
+        # x = self.avgpool(x)  #ASB
+        # x = torch.flatten(x, 1) #ASB
+
+        # x = self.classifier(x) #ASB
 
         return x
 
@@ -393,10 +387,7 @@ def _efficientnet(
     if weights is not None:
         _ovewrite_named_param(kwargs, "num_classes", len(weights.meta["categories"]))
 
-    if purpose == None:
-        model = EfficientNet(inverted_residual_setting, dropout, last_channel=last_channel, **kwargs)
-    else:
-        model = EfficientNet(inverted_residual_setting, dropout, last_channel=last_channel, purpose=purpose,  **kwargs)
+    model = EfficientNet(inverted_residual_setting, dropout, last_channel=last_channel, purpose=purpose,**kwargs)
 
     if weights is not None:
         model.load_state_dict(weights.get_state_dict(progress=progress, check_hash=True))
@@ -481,7 +472,7 @@ _COMMON_META_V2 = {
 class EfficientNet_B0_Weights(WeightsEnum):
     IMAGENET1K_V1 = Weights(
         # Weights ported from https://github.com/rwightman/pytorch-image-models/
-        url="https://download.pytorch.org/models/efficientnet_b0_rwightman-3dd342df.pth",
+        url="https://download.pytorch.org/models/efficientnet_b0_rwightman-7f5810bc.pth",
         transforms=partial(
             ImageClassification, crop_size=224, resize_size=256, interpolation=InterpolationMode.BICUBIC
         ),
@@ -505,7 +496,7 @@ class EfficientNet_B0_Weights(WeightsEnum):
 class EfficientNet_B1_Weights(WeightsEnum):
     IMAGENET1K_V1 = Weights(
         # Weights ported from https://github.com/rwightman/pytorch-image-models/
-        url="https://download.pytorch.org/models/efficientnet_b1_rwightman-533bc792.pth",
+        url="https://download.pytorch.org/models/efficientnet_b1_rwightman-bac287d4.pth",
         transforms=partial(
             ImageClassification, crop_size=240, resize_size=256, interpolation=InterpolationMode.BICUBIC
         ),
@@ -553,7 +544,7 @@ class EfficientNet_B1_Weights(WeightsEnum):
 class EfficientNet_B2_Weights(WeightsEnum):
     IMAGENET1K_V1 = Weights(
         # Weights ported from https://github.com/rwightman/pytorch-image-models/
-        url="https://download.pytorch.org/models/efficientnet_b2_rwightman-bcdf34b7.pth",
+        url="https://download.pytorch.org/models/efficientnet_b2_rwightman-c35c1473.pth",
         transforms=partial(
             ImageClassification, crop_size=288, resize_size=288, interpolation=InterpolationMode.BICUBIC
         ),
@@ -577,7 +568,7 @@ class EfficientNet_B2_Weights(WeightsEnum):
 class EfficientNet_B3_Weights(WeightsEnum):
     IMAGENET1K_V1 = Weights(
         # Weights ported from https://github.com/rwightman/pytorch-image-models/
-        url="https://download.pytorch.org/models/efficientnet_b3_rwightman-cf984f9c.pth",
+        url="https://download.pytorch.org/models/efficientnet_b3_rwightman-b3899882.pth",
         transforms=partial(
             ImageClassification, crop_size=300, resize_size=320, interpolation=InterpolationMode.BICUBIC
         ),
@@ -601,7 +592,7 @@ class EfficientNet_B3_Weights(WeightsEnum):
 class EfficientNet_B4_Weights(WeightsEnum):
     IMAGENET1K_V1 = Weights(
         # Weights ported from https://github.com/rwightman/pytorch-image-models/
-        url="https://download.pytorch.org/models/efficientnet_b4_rwightman-7eb33cd5.pth",
+        url="https://download.pytorch.org/models/efficientnet_b4_rwightman-23ab8bcd.pth",
         transforms=partial(
             ImageClassification, crop_size=380, resize_size=384, interpolation=InterpolationMode.BICUBIC
         ),
@@ -625,7 +616,7 @@ class EfficientNet_B4_Weights(WeightsEnum):
 class EfficientNet_B5_Weights(WeightsEnum):
     IMAGENET1K_V1 = Weights(
         # Weights ported from https://github.com/lukemelas/EfficientNet-PyTorch/
-        url="https://download.pytorch.org/models/efficientnet_b5_lukemelas-b6417697.pth",
+        url="https://download.pytorch.org/models/efficientnet_b5_lukemelas-1a07897c.pth",
         transforms=partial(
             ImageClassification, crop_size=456, resize_size=456, interpolation=InterpolationMode.BICUBIC
         ),
@@ -649,7 +640,7 @@ class EfficientNet_B5_Weights(WeightsEnum):
 class EfficientNet_B6_Weights(WeightsEnum):
     IMAGENET1K_V1 = Weights(
         # Weights ported from https://github.com/lukemelas/EfficientNet-PyTorch/
-        url="https://download.pytorch.org/models/efficientnet_b6_lukemelas-c76e70fd.pth",
+        url="https://download.pytorch.org/models/efficientnet_b6_lukemelas-24a108a5.pth",
         transforms=partial(
             ImageClassification, crop_size=528, resize_size=528, interpolation=InterpolationMode.BICUBIC
         ),
@@ -673,7 +664,7 @@ class EfficientNet_B6_Weights(WeightsEnum):
 class EfficientNet_B7_Weights(WeightsEnum):
     IMAGENET1K_V1 = Weights(
         # Weights ported from https://github.com/lukemelas/EfficientNet-PyTorch/
-        url="https://download.pytorch.org/models/efficientnet_b7_lukemelas-dcc49843.pth",
+        url="https://download.pytorch.org/models/efficientnet_b7_lukemelas-c5b4e57e.pth",
         transforms=partial(
             ImageClassification, crop_size=600, resize_size=600, interpolation=InterpolationMode.BICUBIC
         ),
@@ -790,6 +781,7 @@ def efficientnet_b0(
 ) -> EfficientNet:
     """EfficientNet B0 model architecture from the `EfficientNet: Rethinking Model Scaling for Convolutional
     Neural Networks <https://arxiv.org/abs/1905.11946>`_ paper.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_B0_Weights`, optional): The
             pretrained weights to use. See
@@ -820,6 +812,7 @@ def efficientnet_b1(
 ) -> EfficientNet:
     """EfficientNet B1 model architecture from the `EfficientNet: Rethinking Model Scaling for Convolutional
     Neural Networks <https://arxiv.org/abs/1905.11946>`_ paper.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_B1_Weights`, optional): The
             pretrained weights to use. See
@@ -850,6 +843,7 @@ def efficientnet_b2(
 ) -> EfficientNet:
     """EfficientNet B2 model architecture from the `EfficientNet: Rethinking Model Scaling for Convolutional
     Neural Networks <https://arxiv.org/abs/1905.11946>`_ paper.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_B2_Weights`, optional): The
             pretrained weights to use. See
@@ -880,6 +874,7 @@ def efficientnet_b3(
 ) -> EfficientNet:
     """EfficientNet B3 model architecture from the `EfficientNet: Rethinking Model Scaling for Convolutional
     Neural Networks <https://arxiv.org/abs/1905.11946>`_ paper.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_B3_Weights`, optional): The
             pretrained weights to use. See
@@ -915,6 +910,7 @@ def efficientnet_b4(
 ) -> EfficientNet:
     """EfficientNet B4 model architecture from the `EfficientNet: Rethinking Model Scaling for Convolutional
     Neural Networks <https://arxiv.org/abs/1905.11946>`_ paper.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_B4_Weights`, optional): The
             pretrained weights to use. See
@@ -950,6 +946,7 @@ def efficientnet_b5(
 ) -> EfficientNet:
     """EfficientNet B5 model architecture from the `EfficientNet: Rethinking Model Scaling for Convolutional
     Neural Networks <https://arxiv.org/abs/1905.11946>`_ paper.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_B5_Weights`, optional): The
             pretrained weights to use. See
@@ -986,6 +983,7 @@ def efficientnet_b6(
 ) -> EfficientNet:
     """EfficientNet B6 model architecture from the `EfficientNet: Rethinking Model Scaling for Convolutional
     Neural Networks <https://arxiv.org/abs/1905.11946>`_ paper.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_B6_Weights`, optional): The
             pretrained weights to use. See
@@ -1022,6 +1020,7 @@ def efficientnet_b7(
 ) -> EfficientNet:
     """EfficientNet B7 model architecture from the `EfficientNet: Rethinking Model Scaling for Convolutional
     Neural Networks <https://arxiv.org/abs/1905.11946>`_ paper.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_B7_Weights`, optional): The
             pretrained weights to use. See
@@ -1059,6 +1058,7 @@ def efficientnet_v2_s(
     """
     Constructs an EfficientNetV2-S architecture from
     `EfficientNetV2: Smaller Models and Faster Training <https://arxiv.org/abs/2104.00298>`_.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_V2_S_Weights`, optional): The
             pretrained weights to use. See
@@ -1096,6 +1096,7 @@ def efficientnet_v2_m(
     """
     Constructs an EfficientNetV2-M architecture from
     `EfficientNetV2: Smaller Models and Faster Training <https://arxiv.org/abs/2104.00298>`_.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_V2_M_Weights`, optional): The
             pretrained weights to use. See
@@ -1133,6 +1134,7 @@ def efficientnet_v2_l(
     """
     Constructs an EfficientNetV2-L architecture from
     `EfficientNetV2: Smaller Models and Faster Training <https://arxiv.org/abs/2104.00298>`_.
+
     Args:
         weights (:class:`~torchvision.models.EfficientNet_V2_L_Weights`, optional): The
             pretrained weights to use. See
@@ -1158,43 +1160,6 @@ def efficientnet_v2_l(
         weights,
         progress,
         norm_layer=partial(nn.BatchNorm2d, eps=1e-03),
-        **kwargs,
-    )
-
-@register_model()
-@handle_legacy_interface(weights=("pretrained", EfficientNet_V2_S_Weights.IMAGENET1K_V1))
-def efficientnet_v2_camera_s(
-    *, weights: Optional[EfficientNet_V2_S_Weights] = None, progress: bool = True, **kwargs: Any
-) -> EfficientNet:
-    """
-    Constructs an EfficientNetV2-S architecture from
-    `EfficientNetV2: Smaller Models and Faster Training <https://arxiv.org/abs/2104.00298>`_.
-    Args:
-        weights (:class:`~torchvision.models.EfficientNet_V2_S_Weights`, optional): The
-            pretrained weights to use. See
-            :class:`~torchvision.models.EfficientNet_V2_S_Weights` below for
-            more details, and possible values. By default, no pre-trained
-            weights are used.
-        progress (bool, optional): If True, displays a progress bar of the
-            download to stderr. Default is True.
-        **kwargs: parameters passed to the ``torchvision.models.efficientnet.EfficientNet``
-            base class. Please refer to the `source code
-            <https://github.com/pytorch/vision/blob/main/torchvision/models/efficientnet.py>`_
-            for more details about this class.
-    .. autoclass:: torchvision.models.EfficientNet_V2_S_Weights
-        :members:
-    """
-    weights = EfficientNet_V2_S_Weights.verify(weights)
-
-    inverted_residual_setting, last_channel = _efficientnet_conf("efficientnet_v2_s")
-    return _efficientnet(
-        inverted_residual_setting,
-        kwargs.pop("dropout", 0.2),
-        last_channel,
-        weights,
-        progress,
-        norm_layer=partial(nn.BatchNorm2d, eps=1e-03),
-        purpose='camera',
         **kwargs,
     )
 
