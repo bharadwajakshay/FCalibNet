@@ -94,7 +94,7 @@ def calculateInvRTTensorWhole(RT):
     ones = torch.ones((RT.shape[0],1))
     zeros[:,:,3] = ones[:]
 
-    invRT = torch.cat((invRT,zeros.to('cuda:'+str(invRT.get_device()))),dim=1)
+    invRT = torch.cat((invRT,zeros.to(invRT.device)),dim=1)
 
     return(invRT)
 
