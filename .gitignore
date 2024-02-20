@@ -167,3 +167,8 @@ Pipfile.lock
 
 # Vscode files
 .vscode/
+
+# Test files 
+*.pcd
+*.ply
+*.png
