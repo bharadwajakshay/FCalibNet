@@ -36,6 +36,7 @@ class getLoss(nn.Module):
         EUCLoss = torch.tensor(0)
         CHAMPLoss = torch.tensor(0)
         EMDLoss = torch.tensor(0)
+        MANLoss = torch.tensor(0)
         
         if ("WEUC" in self.loss) or ("EUC" in self.loss):
             # get Eucledian distance
@@ -65,6 +66,11 @@ class getLoss(nn.Module):
                 lossweight = self.lossWeight[self.loss.index("EUC")]
                 EUCLoss = mean*lossweight
 
+        if ("MANHATTAN" in self.loss):
+            manhattanDistance = torch.norm(lidarImgGT.transpose(1,3)[:,:,:,:3]-transformedPoints,1,dim=3)
+            mean = manhattanDistance.view(manhattanDistance.shape[0],-1).mean(-1,keepdim=True).mean()
+            lossweight = self.lossWeight[self.loss.index("MANHATTAN")]
+            MANLoss = mean * lossweight
 
         if ("CHAMP" in self.loss):
             # Get Champer distance'
@@ -100,9 +106,10 @@ class getLoss(nn.Module):
             transfomTranslationLoss = torch.tensor(0)
 
 
-        totalLoss = WEUCLoss + EMDLoss.to(WEUCLoss.device) +\
-                    CHAMPLoss.to(WEUCLoss.device) + EUCLoss.to(WEUCLoss.device) +\
-                    chordaLoss.to(WEUCLoss.device) + transfomTranslationLoss.to(WEUCLoss.device)
+        totalLoss = WEUCLoss.to(rot.device) + EMDLoss.to(rot.device) +\
+                    CHAMPLoss.to(rot.device) + EUCLoss.to(rot.device) +\
+                    chordaLoss.to(rot.device) + transfomTranslationLoss.to(rot.device) +\
+                    MANLoss.to(rot.device)
         
         return(totalLoss)
         

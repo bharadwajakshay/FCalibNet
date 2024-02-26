@@ -69,9 +69,9 @@ def main():
         logging.info("Using default CPU for training")
         device = 'cpu'
 
-    #model = model.to(device) #ASB handeled in the model constructor
+    model = model.to(device) #ASB handeled in the model constructor
     loss = getLoss().to(device)
-       
+    lastepoch = -1
     
     # Setup optimizer
     if config.optimizer == 'Adam':
@@ -111,6 +111,14 @@ def main():
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                                mode=config.scheduler['mode'],
                                                                patience= config.scheduler['patience'])
+    elif config.scheduler['name'] == 'MLR':
+        logging.info(f"Setting up scheduler. Selected scheduler is Multistep LR.\n \
+                     Scheduler parameters: \n \
+                     \t Steps : {config.scheduler['step']}")
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+                                                        last_epoch=lastepoch,
+                                                        milestones=config.scheduler['step'])
+
     else:
         logging.error("Current scheduler setting is not supported. Exititng.")
         exit(-1)
@@ -156,6 +164,13 @@ def main():
     monitorDist = 10000000
     previousfilePath = None
     logging.info("Starting to train the network")
+    
+    
+    # Start profiling
+    prof = torch.profiler.profile(
+        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+        record_shapes=True)
+    
     for epochs in range(loadedEpochs,config.training['epoch']):
         epochStartTime = time.time()
         logging.info(f"Training details:\n \
@@ -171,7 +186,7 @@ def main():
         for params in model.colorEfficientNet.parameters():
             params.requires_grad = False
 
-
+        prof.start()
         #  get your data
         lossValueArray = torch.zeros(len(trainingDataLoader))
         for dataBatch, data in tqdm(enumerate(trainingDataLoader,0),total=len(trainingDataLoader)):
@@ -182,8 +197,8 @@ def main():
             colorImage = torch.transpose(colorImage.to(device),1,3)
             lidarImage = torch.transpose(lidarImage.to(device),1,3).type(torch.cuda.FloatTensor)
             gtLidarImage = torch.transpose(gtLidarImage.to(device),1,3).type(torch.cuda.FloatTensor)
-            projectionMat = projectionMat.to(device)
-            gtTransfrom = gtTransfrom.to(device)
+            projectionMat = projectionMat.to(device).type(torch.cuda.FloatTensor)
+            gtTransfrom = gtTransfrom.to(device).type(torch.cuda.FloatTensor)
 
             [predRot, predTrans] = model(colorImage, lidarImage)
 
@@ -196,6 +211,10 @@ def main():
             
             
             lossValueArray[dataBatch] = lossVal
+            
+        prof.stop()
+        
+        print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=30))
 
         epochEndTime = time.time()
         logging.info(f"Epoch training elapsed time:{(epochEndTime - epochStartTime)/60.0:3f} mins")

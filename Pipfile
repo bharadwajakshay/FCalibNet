@@ -15,6 +15,9 @@ pytorch3dunet = {editable = true, path = "./src/external/UNet3D"}
 h5py = "*"
 opencv-python = "*"
 open3d = "*"
+torchsummary = "*"
+torchinfo = "*"
+torch-tb-profiler = "*"
 
 [dev-packages]
 

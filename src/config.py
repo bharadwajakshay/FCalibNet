@@ -1,18 +1,18 @@
 import os
-name = "FCalib_w_UNet3D"
+name = "FCalib_w_RESNET"
 mode = "Train" # Train / # Evaluate
 datasetFile = "/home/akshay/kitti_Dataset_40_1/calibData.json"
 checkpointDir = os.path.join(os.getcwd(), 'checkpoints')
 logDir = os.path.join(os.getcwd(),'logs')
 DDPT = False # Distributed Data Parallel Training
 DPT = False # Data Parallel Training
-modelParallel = True # Need this for Unet3D
-optimizer = "SGD" # 'Adam'/"SGD"
+modelParallel = False # Need this for Unet3D
+optimizer = "Adam" # 'Adam'/"SGD"
 
 # Scheduler  deteails 
 # ROP = Reduce on Platue
 scheduler = dict(
-    name="ROP", # 'ROP'S
+    name='MLR', # 'ROP'/'MLR'
     mode = 'min', # 'max'/'max'
     patience = 4, # integer values
     step = [24,25]
@@ -37,9 +37,10 @@ chkPointFileName = '2024_2_3_21:18_ED_2.0538178968429563.pth'
     "EMD" = Earthmovers distance between points
     "CHORDAL" = Chordal distance between the predicted and the target transforms
     "EUCTR" = Euclidean distance between the translation of the predicated transform and the ground truth
+    "MANHATTAN" = Manhattan distance or the L1 norm between the points
 '''
 
-loss = ["WEUC","CHORDAL","EUCTR"]
+loss = ["MANHATTAN","CHORDAL","EUCTR"]
 
 # Loss weight needs to be the same size as loss 
 lossWeight = [1.0, 0.7, 0.7]

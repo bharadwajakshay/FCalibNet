@@ -8,9 +8,9 @@ class featureAnalysis(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         
-        inchannels = 1280
-        outchannels = 64
-        self.model = ResidualUNet3D(in_channels=inchannels, out_channels=outchannels, pool_kernel_size=1)
+        inchannels = 1024
+        outchannels = 128
+        self.model = UNet3D(in_channels=inchannels, out_channels=outchannels, pool_kernel_size=1)
         
     def forward(self,x):
         

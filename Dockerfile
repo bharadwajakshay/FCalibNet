@@ -52,7 +52,8 @@ RUN pip3 install torch==2.1.0\
                  matplotlib \
                  ninja \
                  h5py \
-                 opencv-python
+                 opencv-python\
+                 torchinfo
 
 COPY src /home/akshay/FCALIBNet/src
 WORKDIR /home/akshay/FCALIBNet
