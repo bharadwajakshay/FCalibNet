@@ -8,6 +8,7 @@ import torchvision
 from model.efficientNet import Conv2dNormActivation
 from collections import OrderedDict
 from torchinfo import summary
+from model.crossFeatureHighlight import crossFeatureHighlight
 
 class fCalibNet(nn.Module):
     def __init__(self, *args, **kwargs) -> None:
@@ -26,10 +27,13 @@ class fCalibNet(nn.Module):
         self.lidarUpScaleNet = nn.Sequential(*[nn.ConvTranspose2d(2048,2048,kernel_size=(3,3),stride=(2,2)),nn.ConvTranspose2d(2048,1024,kernel_size=(3,3),stride=(2,2))])
         self.imageUpScaleNet = nn.Sequential(*[nn.ConvTranspose2d(2048,2048,kernel_size=(3,3),stride=(1,1)),nn.ConvTranspose2d(2048,1024,kernel_size=(3,3),stride=(1,1))])
         
-        self.featureAnalysis = featureAnalysis()
+        # self.featureAnalysis = featureAnalysis()
+        self.featureAnalysis = crossFeatureHighlight()
+        self.featureMatching = crossFeatureMatching()
+        
         self.transRegression = transRegression()
         self.rotRegression = rotRegression()
-        self.adaptiveAvgPool = nn.AdaptiveAvgPool3d((14,1,1))
+    
 
 
     
@@ -41,22 +45,24 @@ class fCalibNet(nn.Module):
         lidarFeatureMap = self.lidarUpScaleNet(lidarFeatureMap)
         
 
-        reorganizedLiDARFeatureMap = torch.empty_like(colorFeatureMap).unsqueeze(2)
+        #reorganizedLiDARFeatureMap = torch.empty_like(colorFeatureMap).unsqueeze(2)
         
-        for idx in range(colorFeatureMap.shape[2],lidarFeatureMap.shape[2], 7):
+        #for idx in range(colorFeatureMap.shape[2],lidarFeatureMap.shape[2], 7):
 
-            reorganizedLiDARFeatureMap = torch.cat((reorganizedLiDARFeatureMap,
-                                        lidarFeatureMap[:,:, idx - colorFeatureMap.shape[2]: idx].unsqueeze(2)), dim=2)
+        #    reorganizedLiDARFeatureMap = torch.cat((reorganizedLiDARFeatureMap,
+        #                                lidarFeatureMap[:,:, idx - colorFeatureMap.shape[2]: idx].unsqueeze(2)), dim=2)
         
         #reorganizedLiDARFeatureMap = torch.cat((reorganizedLiDARFeatureMap,
         #                                lidarFeatureMap[:,:, (lidarFeatureMap.shape[2]-colorFeatureMap.shape[2])-1: -1].unsqueeze(2)), dim=2) 
         
-        reorganizedLiDARFeatureMap = reorganizedLiDARFeatureMap [:,:,1:,:,:]
+        #reorganizedLiDARFeatureMap = reorganizedLiDARFeatureMap [:,:,1:,:,:]
         
         
-        stackedTensor = torch.cat((colorFeatureMap.unsqueeze(2),reorganizedLiDARFeatureMap), dim=2)
-        x = self.featureAnalysis(stackedTensor)
+        #stackedTensor = torch.cat((colorFeatureMap.unsqueeze(2),reorganizedLiDARFeatureMap), dim=2)
         
+        x = self.featureAnalysis(lidarFeatureMap, colorFeatureMap)
+        x = self.featureMatching(x)
+        x = x.view(x.shape[0],x.shape[1],-1)
         trans = self.transRegression(x)
         rot = self.rotRegression(x)
 
