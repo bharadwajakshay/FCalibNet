@@ -24,10 +24,10 @@ class dataLoader(Dataset):
 
 
         trainIdx = int(len(self.data)*0.8)
-        #trainIdx = 100
+        #trainIdx = 300
 
         testIdx = int(len(self.data)*0.9)
-        #testIdx = 200
+        #testIdx = 500
 
         if mode =='train':
             self.data = self.data[:trainIdx]
@@ -151,4 +151,4 @@ class dataLoader(Dataset):
         #        time to fetch 2nd PC MemMap= {getgtpointsmemMapEndTime - getgtpointsEndTime}")
 
 
-        return([colorImage, trainPointCloud, goundTruthPointCloud, transfromRT, projectMat])
+        return([colorImage, trainPointCloud[:,:,:4], goundTruthPointCloud[:,:,:4], transfromRT, projectMat])
