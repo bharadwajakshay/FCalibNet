@@ -1,5 +1,5 @@
 import os
-name = "FCalib_w_RESNET"
+name = "FCalib_w_RESNET_n_Crossattention"
 mode = "Train" # Train / # Evaluate
 datasetFile = "/home/akshay/kitti_Dataset_40_1/calibData.json"
 checkpointDir = os.path.join(os.getcwd(), 'checkpoints')
@@ -35,13 +35,14 @@ chkPointFileName = '2024_2_3_21:18_ED_2.0538178968429563.pth'
     "WEUC" = Weighted Euclidean distance between points
     "CHAMP" = Champher distance between points
     "EMD" = Earthmovers distance between points
-    "CHORDAL" = Chordal distance between the predicted and the target transforms
+    "CHORDAL" = Chordal distance between the predicted and the target SO(3) rotations
     "EUCTR" = Euclidean distance between the translation of the predicated transform and the ground truth
     "MANHATTAN" = Manhattan distance or the L1 norm between the points
+    "GEODESIC" = Geodesic distance between the predicted and the target SO(3) rotations
 '''
 
-loss = ["MANHATTAN","CHORDAL","EUCTR"]
+loss = ["GEODESIC","EUCTR"]
 
 # Loss weight needs to be the same size as loss 
-lossWeight = [1.0, 0.7, 0.7]
+lossWeight = [2,1]
 

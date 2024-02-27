@@ -37,6 +37,7 @@ class getLoss(nn.Module):
         CHAMPLoss = torch.tensor(0)
         EMDLoss = torch.tensor(0)
         MANLoss = torch.tensor(0)
+        geodesicLoss = torch.tensor(0)
         
         if ("WEUC" in self.loss) or ("EUC" in self.loss):
             # get Eucledian distance
@@ -97,11 +98,24 @@ class getLoss(nn.Module):
             chordaLoss = lossweight * chordalDist.mean()
         else:
             chordaLoss = torch.tensor(0)
+            
+        if ("GEODESIC" in self.loss):
+            eps = 1e-7
+            R_diffs = rot @ gtTR[:,:3,:3].permute(0, 2, 1)
+            # See: https://github.com/pytorch/pytorch/issues/7500#issuecomment-502122839.
+            traces = R_diffs.diagonal(dim1=-2, dim2=-1).sum(-1)
+            dists = torch.acos(torch.clamp((traces - 1) / 2, -1 + eps, 1 - eps))
+            dists = dists.sum()
+            lossweight = self.lossWeight[self.loss.index("GEODESIC")]
+            geodesicLoss = dists * lossweight
+        else:
+            geodesicLoss = torch.tensor(0)
+            
 
         if ("EUCTR" in self.loss):
             eucledianMatDist = torch.linalg.norm(transformationMat[:,:3,3] - gtTR[:,:3,3],2,dim=1)
             lossweight = self.lossWeight[self.loss.index("EUCTR")]
-            transfomTranslationLoss = lossweight * eucledianMatDist.mean()
+            transfomTranslationLoss = lossweight * eucledianMatDist.sum()
         else:
             transfomTranslationLoss = torch.tensor(0)
 
@@ -109,7 +123,7 @@ class getLoss(nn.Module):
         totalLoss = WEUCLoss.to(rot.device) + EMDLoss.to(rot.device) +\
                     CHAMPLoss.to(rot.device) + EUCLoss.to(rot.device) +\
                     chordaLoss.to(rot.device) + transfomTranslationLoss.to(rot.device) +\
-                    MANLoss.to(rot.device)
+                    MANLoss.to(rot.device) + geodesicLoss
         
         return(totalLoss)
         
