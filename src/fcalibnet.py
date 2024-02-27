@@ -13,6 +13,7 @@ from fcalibValidation import valitation
 
 import config
 import logging
+import csv
 
 # Get current system
 programStartTime = datetime.now()
@@ -31,9 +32,19 @@ logging.basicConfig(filename=logfile,
                     datefmt='%H:%M:%S',
                     level=logging.DEBUG)
 
+# logging loss. Need to setup directories
+lossLogDir = os.path.join(config.logDir,'loss','-'.join((config.name,str(programStartTime.date()),
+                            str(programStartTime.hour),
+                                    str(programStartTime.minute))))
+
+if not os.path.exists(lossLogDir):
+    os.makedirs(lossLogDir)
+
 torch.autograd.set_detect_anomaly(True)
 
 from model.loss import getLoss
+
+_profile = False
 
 def main():
     
@@ -165,12 +176,13 @@ def main():
     previousfilePath = None
     logging.info("Starting to train the network")
     
+    if _profile:
+        # Start profiling
+        prof = torch.profiler.profile(
+            activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+            record_shapes=True)
     
-    # Start profiling
-    prof = torch.profiler.profile(
-        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-        record_shapes=True)
-    
+    meanLossArray = []
     for epochs in range(loadedEpochs,config.training['epoch']):
         epochStartTime = time.time()
         logging.info(f"Training details:\n \
@@ -186,9 +198,10 @@ def main():
         for params in model.colorEfficientNet.parameters():
             params.requires_grad = False
 
-        prof.start()
+        if _profile:
+            prof.start()
         #  get your data
-        lossValueArray = torch.zeros(len(trainingDataLoader))
+        lossValueArray = []
         for dataBatch, data in tqdm(enumerate(trainingDataLoader,0),total=len(trainingDataLoader)):
             optimizer.zero_grad()
             
@@ -210,11 +223,22 @@ def main():
             optimizer.zero_grad()
             
             
-            lossValueArray[dataBatch] = lossVal
-            
-        prof.stop()
+            lossValueArray.append(float(lossVal.detach().cpu().numpy()))
         
-        print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=30))
+        # Write losses to csv
+        with open(os.path.join(lossLogDir,f"loss_Epoch_{epochs}.csv"),'w') as f:
+            writer = csv.writer(f)
+            writer.writerows(map(lambda x: [x], lossValueArray))
+            
+        # Keep track of mean loss
+        meanLossArray.append(sum(lossValueArray)/len(lossValueArray))
+            
+        
+        if _profile:
+            prof.stop()
+            print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=30))
+            
+        # need to write loss values to a file
 
         epochEndTime = time.time()
         logging.info(f"Epoch training elapsed time:{(epochEndTime - epochStartTime)/60.0:3f} mins")
@@ -231,8 +255,8 @@ def main():
         # Scheduler step
         logging.info("Stepping thru scheduler")
         scheduler.step(np.mean(eucledianDist))
-        print(f"Mean loss value = {lossVal}")
-        logging.info((f"Mean loss value = {lossVal}"))
+        print(f"Mean loss value = {meanLossArray[epochs]}")
+        logging.info((f"Mean loss value = {meanLossArray[epochs]}"))
         print(f"Epoch: {epochs}\t Mean SE3 Dist = {np.mean(SE3Dist):3f} \t Mean Eucledian Distance = {np.mean(eucledianDist):3f}")
         logging.info((f"Epoch: {epochs}\t Mean SE3 Dist = {np.mean(SE3Dist):3f} \t Mean Eucledian Distance = {np.mean(eucledianDist):3f}"))
         print(f"Mean Absolute Errors: Euler angles: x={np.mean(absEulerAngleErr,1)[0]:3f}\u00b0, y={np.mean(absEulerAngleErr,1)[1]:3f}\u00b0, z={np.mean(absEulerAngleErr,1)[2]:3f}\u00b0\
@@ -271,6 +295,11 @@ def main():
         if not previousfilePath == None:
             os.remove(previousfilePath)
         previousfilePath = checkPointFilePath
+        
+    # Write losses to csv
+    with open(os.path.join(lossLogDir,f"Mean_Loss_all_epochs.csv"),'w') as f:
+        writer = csv.writer(f)
+        writer.writerows(map(lambda x: [x], meanLossArray)) 
 
 
 
