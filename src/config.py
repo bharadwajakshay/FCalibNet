@@ -1,5 +1,5 @@
 import os
-name = "FCalib_w_RESNET_n_Crossattention(profile)"
+name = "FCalib_w_RESNET_n_Crossattention"
 mode = "Train" # Train / # Evaluate
 datasetFile = "/home/akshay/kitti_Dataset_40_1/calibData.json"
 checkpointDir = os.path.join(os.getcwd(), 'checkpoints')
