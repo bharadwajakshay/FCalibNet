@@ -1,5 +1,5 @@
 import os
-name = "FCalib_w_RESNET_n_Crossattention"
+name = "FCalib_w_RESNET_n_Crossattention(profile)"
 mode = "Train" # Train / # Evaluate
 datasetFile = "/home/akshay/kitti_Dataset_40_1/calibData.json"
 checkpointDir = os.path.join(os.getcwd(), 'checkpoints')
@@ -18,7 +18,7 @@ scheduler = dict(
     step = [24,25]
 ) 
 training = dict(
-    batchSize = 25,
+    batchSize = 30,
     epoch = 30,
     learningRate = 0.001,
     beta0 = 0.9,
