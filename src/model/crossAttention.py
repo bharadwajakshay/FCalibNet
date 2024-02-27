@@ -18,9 +18,9 @@ class crossAttention(nn.Module):
         
     def forward(self,lidar,cam):
         
-        q = self.Q(lidar.view(25,1024,-1)).view(lidar.shape)
-        k = self.K(cam.view(25,1024,-1)).view(cam.shape)
-        v = self.V(cam.view(25,1024,-1)).view(cam.shape)
+        q = self.Q(lidar.view(lidar.shape[0],lidar.shape[1],-1)).view(lidar.shape)
+        k = self.K(cam.view(cam.shape[0],cam.shape[1],-1)).view(cam.shape)
+        v = self.V(cam.view(cam.shape[0],cam.shape[1],-1)).view(cam.shape)
         
         dots = torch.einsum('b c i d,b c j d->b c i j', q,k) * self.scale
         
@@ -28,6 +28,6 @@ class crossAttention(nn.Module):
         
         out = torch.einsum('b c i d,b c k j->b c i j', att,v)
         
-        out = self.out(out.view(25,1024,-1)).view(out.shape)
+        out = self.out(out.view(out.shape[0],out.shape[1],-1)).view(out.shape)
         
         return (out)
