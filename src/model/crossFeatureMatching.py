@@ -12,13 +12,13 @@ class crossFeatureMatching(nn.Module):
         stride = (1,1)
         self.conv1x1B0 = nn.Conv2d(channels, 2048, kernelSize, padding=padding, stride=stride)
         nn.init.xavier_uniform_(self.conv1x1B0.weight)
-        self.conv1x1B1 = nn.Conv2d(2048, 1024,kernelSize, padding=padding, stride=stride)
+        self.conv1x1B1 = nn.Conv2d(2048, 1024,kernelSize, padding=padding, stride=stride, bias=False)
         nn.init.xavier_uniform_(self.conv1x1B1.weight)
-        self.conv1x1B2 = nn.Conv2d(1024, 512,kernelSize, padding=padding, stride=stride)
+        self.conv1x1B2 = nn.Conv2d(1024, 512,kernelSize, padding=padding, stride=stride, bias=False)
         nn.init.xavier_uniform_(self.conv1x1B2.weight)
-        self.conv1x1B3 = nn.Conv2d(512, 256,kernelSize, padding=padding, stride=stride)
+        self.conv1x1B3 = nn.Conv2d(512, 256,kernelSize, padding=padding, stride=stride, bias=False)
         nn.init.xavier_uniform_(self.conv1x1B3.weight)
-        self.conv1x1B4 = nn.Conv2d(256, 128,kernelSize, padding=padding, stride=stride)
+        self.conv1x1B4 = nn.Conv2d(256, 128,kernelSize, padding=padding, stride=stride, bias=False)
         nn.init.xavier_uniform_(self.conv1x1B4.weight)
         
         # Batch Normalization 
