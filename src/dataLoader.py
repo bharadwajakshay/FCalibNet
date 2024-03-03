@@ -7,13 +7,14 @@ from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 import time
 import logging
-
+import torch
+from torchvision import transforms
 _debug = False
 
 
 
 class dataLoader(Dataset):
-    def __init__ (self, filename,  mode='train'):
+    def __init__ (self, filename,  mode='train', device = 'cpu', reducedList = 'False'):
         logging.info(f"initializing data loader.")
 
         self.datafile = filename
@@ -21,13 +22,18 @@ class dataLoader(Dataset):
         self.colorImageWidth = 740
         with open(self.datafile,'r') as jsonFile:
             self.data = json.load(jsonFile)
+            
+        self.device = device
 
+        if not reducedList:
+            trainIdx = int(len(self.data)*0.8)
+        else:
+            trainIdx = 3000
 
-        trainIdx = int(len(self.data)*0.8)
-        #trainIdx = 300
-
-        testIdx = int(len(self.data)*0.9)
-        #testIdx = 500
+        if not reducedList:
+            testIdx = int(len(self.data)*0.9)
+        else:
+            testIdx = 5000
 
         if mode =='train':
             self.data = self.data[:trainIdx]
@@ -37,6 +43,13 @@ class dataLoader(Dataset):
        
         if mode =='evaluate':
             self.data = self.data[testIdx:]
+            
+        # Define preprocessing Pipeline
+        self.imgTensorPreProc = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        
+        self.ptCldPerProc =  transforms.Compose([transforms.ToTensor()])
 
         logging.info(f"Dataloader details.\n \
                      \t Filename:{filename}\n \
@@ -98,6 +111,17 @@ class dataLoader(Dataset):
             count+=1
 
         return mat
+    
+    def normalizePtCld(self,ptcld):
+        points = np.zeros_like(ptcld)
+        mean = np.mean(ptcld,axis=(0,1))
+        scale = np.linalg.norm(ptcld[:,:,:3],2,axis=2)
+        points[:,:,:3] = ptcld[:,:,:3] - mean[:3]
+        points[:,:,:3] /=scale.max()
+        points[:,:,-1] /= ptcld[:,:,-1].max(axis=(0,1))
+        points[:,:,3] = ptcld[:,:,3]
+        return points
+        
         
     
     def getItem(self,key):
@@ -114,12 +138,15 @@ class dataLoader(Dataset):
                 
         __, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename, self.colorImageHeight, self.colorImageWidth)
         #__, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename)
-        colorImage = np.array(srcClrImg, dtype=np.float32)
+        colorImage = self.imgTensorPreProc(np.array(srcClrImg, dtype=np.float32)/255)
 
         trainPointCloud = self.readProjectionDataMemmap(trainProjectedPC)
+        trainPointCloud = self.normalizePtCld(trainPointCloud)
+        trainPointCloud = self.ptCldPerProc(np.float32(trainPointCloud))
 
         goundTruthPointCloud = self.readProjectionDataMemmap(gndTruthPC)
-
+        goundTruthPointCloud = self.normalizePtCld(goundTruthPointCloud)
+        goundTruthPointCloud = self.ptCldPerProc(np.float32(goundTruthPointCloud))
 
         if _debug == True:
             ## Verification of range image
@@ -151,4 +178,4 @@ class dataLoader(Dataset):
         #        time to fetch 2nd PC MemMap= {getgtpointsmemMapEndTime - getgtpointsEndTime}")
 
 
-        return([colorImage, trainPointCloud[:,:,:4], goundTruthPointCloud[:,:,:4], transfromRT, projectMat])
+        return(colorImage, trainPointCloud[:4,:,:], goundTruthPointCloud[:4,:,:], np.float32(transfromRT), np.float32(projectMat))

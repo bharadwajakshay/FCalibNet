@@ -10,7 +10,9 @@ class crossFeatureHighlight(nn.Module):
         self.attLayer2 = crossAttention()
         
     def forward(self, lidar, image):
-         x = self.attLayer1 (lidar, image)
-         x = self.attLayer2 (x,image)
-         x = torch.concat((x,lidar),dim=1)
-         return(x)
+        lidar = lidar.transpose(-1,-2)
+        image = image.transpose(-1,-2)
+        x = self.attLayer1 (lidar, image)  
+        x = self.attLayer2 (x,image)
+        x = torch.concat((x,lidar),dim=1)
+        return(x)
