@@ -11,19 +11,18 @@ import logging
 chamfer_dist = chamfer_3DDist()
 
 class getLoss(nn.Module):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, device = 'cuda', *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.loss = config.loss
         self.lossWeight = config.lossWeight
-        
+        self.device = device
         logging.info(f"Initializing the loss function. Loss details:\n \
                      \t Loss Options:[{config.loss}]\n \
                      \t Loss Weight: [{config.lossWeight}]")
         
     def forward(self, predTR, colorImg, lidarImg, lidarImgGT, gtTR, projMat):
         
-        lidarImg = lidarImg.to(predTR[0].device)
         lidarImgGT = lidarImgGT.to(predTR[0].device)
         gtTR = gtTR.to(predTR[0].device)
         
@@ -32,12 +31,12 @@ class getLoss(nn.Module):
         invTransformMat = tensorTools.calculateInvRTTensorWhole(transformationMat)
         transformedPoints = tensorTools.applyTransformationOnTensor(lidarImg[:,:3,:,:].transpose(1,3), invTransformMat)
         
-        WEUCLoss = torch.tensor(0)
-        EUCLoss = torch.tensor(0)
-        CHAMPLoss = torch.tensor(0)
-        EMDLoss = torch.tensor(0)
-        MANLoss = torch.tensor(0)
-        geodesicLoss = torch.tensor(0)
+        WEUCLoss = torch.tensor(0,device=self.device)
+        EUCLoss = torch.tensor(0,device=self.device)
+        CHAMPLoss = torch.tensor(0,device=self.device)
+        EMDLoss = torch.tensor(0,device=self.device)
+        MANLoss = torch.tensor(0,device=self.device)
+        geodesicLoss = torch.tensor(0,device=self.device)
         
         if ("WEUC" in self.loss) or ("EUC" in self.loss):
             # get Eucledian distance
