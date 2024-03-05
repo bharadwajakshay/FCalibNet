@@ -54,7 +54,10 @@ RUN pip3 install torch==2.1.0\
                  h5py \
                  opencv-python\
                  torchinfo\
-                 torch-tb-profiler
+                 torch-tb-profiler\
+                 mmcv\
+                 mmdet\
+                 mmdet3d
 
 COPY src /home/akshay/FCALIBNet/src
 WORKDIR /home/akshay/FCALIBNet
