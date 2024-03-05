@@ -11,19 +11,18 @@ import logging
 chamfer_dist = chamfer_3DDist()
 
 class getLoss(nn.Module):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, device = 'cuda', *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.loss = config.loss
         self.lossWeight = config.lossWeight
-        
+        self.device = device
         logging.info(f"Initializing the loss function. Loss details:\n \
                      \t Loss Options:[{config.loss}]\n \
                      \t Loss Weight: [{config.lossWeight}]")
         
     def forward(self, predTR, colorImg, lidarImg, lidarImgGT, gtTR, projMat):
         
-        lidarImg = lidarImg.to(predTR[0].device)
         lidarImgGT = lidarImgGT.to(predTR[0].device)
         gtTR = gtTR.to(predTR[0].device)
         
@@ -32,10 +31,12 @@ class getLoss(nn.Module):
         invTransformMat = tensorTools.calculateInvRTTensorWhole(transformationMat)
         transformedPoints = tensorTools.applyTransformationOnTensor(lidarImg[:,:3,:,:].transpose(1,3), invTransformMat)
         
-        WEUCLoss = torch.tensor(0)
-        EUCLoss = torch.tensor(0)
-        CHAMPLoss = torch.tensor(0)
-        EMDLoss = torch.tensor(0)
+        WEUCLoss = torch.tensor(0,device=self.device)
+        EUCLoss = torch.tensor(0,device=self.device)
+        CHAMPLoss = torch.tensor(0,device=self.device)
+        EMDLoss = torch.tensor(0,device=self.device)
+        MANLoss = torch.tensor(0,device=self.device)
+        geodesicLoss = torch.tensor(0,device=self.device)
         
         if ("WEUC" in self.loss) or ("EUC" in self.loss):
             # get Eucledian distance
@@ -65,6 +66,11 @@ class getLoss(nn.Module):
                 lossweight = self.lossWeight[self.loss.index("EUC")]
                 EUCLoss = mean*lossweight
 
+        if ("MANHATTAN" in self.loss):
+            manhattanDistance = torch.norm(lidarImgGT.transpose(1,3)[:,:,:,:3]-transformedPoints,1,dim=3)
+            mean = manhattanDistance.view(manhattanDistance.shape[0],-1).mean(-1,keepdim=True).mean()
+            lossweight = self.lossWeight[self.loss.index("MANHATTAN")]
+            MANLoss = mean * lossweight
 
         if ("CHAMP" in self.loss):
             # Get Champer distance'
@@ -91,18 +97,32 @@ class getLoss(nn.Module):
             chordaLoss = lossweight * chordalDist.mean()
         else:
             chordaLoss = torch.tensor(0)
+            
+        if ("GEODESIC" in self.loss):
+            eps = 1e-7
+            R_diffs = rot @ gtTR[:,:3,:3].permute(0, 2, 1)
+            # See: https://github.com/pytorch/pytorch/issues/7500#issuecomment-502122839.
+            traces = R_diffs.diagonal(dim1=-2, dim2=-1).sum(-1)
+            dists = torch.acos(torch.clamp((traces - 1) / 2, -1 + eps, 1 - eps))
+            dists = dists.sum()
+            lossweight = self.lossWeight[self.loss.index("GEODESIC")]
+            geodesicLoss = dists * lossweight
+        else:
+            geodesicLoss = torch.tensor(0)
+            
 
         if ("EUCTR" in self.loss):
             eucledianMatDist = torch.linalg.norm(transformationMat[:,:3,3] - gtTR[:,:3,3],2,dim=1)
             lossweight = self.lossWeight[self.loss.index("EUCTR")]
-            transfomTranslationLoss = lossweight * eucledianMatDist.mean()
+            transfomTranslationLoss = lossweight * eucledianMatDist.sum()
         else:
             transfomTranslationLoss = torch.tensor(0)
 
 
-        totalLoss = WEUCLoss + EMDLoss.to(WEUCLoss.device) +\
-                    CHAMPLoss.to(WEUCLoss.device) + EUCLoss.to(WEUCLoss.device) +\
-                    chordaLoss.to(WEUCLoss.device) + transfomTranslationLoss.to(WEUCLoss.device)
+        totalLoss = WEUCLoss.to(rot.device) + EMDLoss.to(rot.device) +\
+                    CHAMPLoss.to(rot.device) + EUCLoss.to(rot.device) +\
+                    chordaLoss.to(rot.device) + transfomTranslationLoss.to(rot.device) +\
+                    MANLoss.to(rot.device) + geodesicLoss
         
         return(totalLoss)
         

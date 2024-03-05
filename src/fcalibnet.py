@@ -13,6 +13,7 @@ from fcalibValidation import valitation
 
 import config
 import logging
+import csv
 
 # Get current system
 programStartTime = datetime.now()
@@ -31,9 +32,21 @@ logging.basicConfig(filename=logfile,
                     datefmt='%H:%M:%S',
                     level=logging.DEBUG)
 
-torch.autograd.set_detect_anomaly(True)
+# logging loss. Need to setup directories
+lossLogDir = os.path.join(config.logDir,'loss','-'.join((config.name,str(programStartTime.date()),
+                            str(programStartTime.hour),
+                                    str(programStartTime.minute))))
+
+if not os.path.exists(lossLogDir):
+    os.makedirs(lossLogDir)
+
+# torch.autograd.set_detect_anomaly(True)
+torch.backends.cudnn.benchmark = True
 
 from model.loss import getLoss
+
+_profile = False
+_testdata = False
 
 def main():
     
@@ -69,9 +82,9 @@ def main():
         logging.info("Using default CPU for training")
         device = 'cpu'
 
-    #model = model.to(device) #ASB handeled in the model constructor
+    model = model.to(device) #ASB handeled in the model constructor
     loss = getLoss().to(device)
-       
+    lastepoch = -1
     
     # Setup optimizer
     if config.optimizer == 'Adam':
@@ -111,6 +124,14 @@ def main():
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                                mode=config.scheduler['mode'],
                                                                patience= config.scheduler['patience'])
+    elif config.scheduler['name'] == 'MLR':
+        logging.info(f"Setting up scheduler. Selected scheduler is Multistep LR.\n \
+                     Scheduler parameters: \n \
+                     \t Steps : {config.scheduler['step']}")
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+                                                        last_epoch=lastepoch,
+                                                        milestones=config.scheduler['step'])
+
     else:
         logging.error("Current scheduler setting is not supported. Exititng.")
         exit(-1)
@@ -139,23 +160,33 @@ def main():
 
 
     logging.info(f"Loading dataloader. Datafile: {config.datasetFile}")
-    trainingData = dataLoader(config.datasetFile)
-    validationData = dataLoader(config.datasetFile, 'test') 
+    trainingData = dataLoader(config.datasetFile,'train', device=device, reducedList=True if _testdata else False)
+    validationData = dataLoader(config.datasetFile, 'test', device=device, reducedList=True if _testdata else False) 
     trainingDataLoader = torch.utils.data.DataLoader(trainingData,
                                                      batch_size=config.training['batchSize'],
                                                      shuffle=True,
-                                                     num_workers=10,
-                                                     drop_last=True)
+                                                     num_workers=5,
+                                                     drop_last=True,
+                                                     pin_memory=True)
     
     validatingDataLoader = torch.utils.data.DataLoader(validationData,
                                                      batch_size=config.training['batchSize'],
                                                      shuffle=True,
-                                                     num_workers=10,
-                                                     drop_last=True)
+                                                     num_workers=5,
+                                                     drop_last=True,
+                                                     pin_memory=True)
 
     monitorDist = 10000000
     previousfilePath = None
     logging.info("Starting to train the network")
+    
+    if _profile:
+        # Start profiling
+        prof = torch.profiler.profile(
+            activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+            record_shapes=False)
+    
+    meanLossArray = []
     for epochs in range(loadedEpochs,config.training['epoch']):
         epochStartTime = time.time()
         logging.info(f"Training details:\n \
@@ -171,20 +202,19 @@ def main():
         for params in model.colorEfficientNet.parameters():
             params.requires_grad = False
 
-
+        if _profile:
+            prof.start()
         #  get your data
-        lossValueArray = torch.zeros(len(trainingDataLoader))
+        lossValueArray = []
         for dataBatch, data in tqdm(enumerate(trainingDataLoader,0),total=len(trainingDataLoader)):
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             
             colorImage, lidarImage, gtLidarImage, gtTransfrom, projectionMat = data
-             
-            colorImage = torch.transpose(colorImage.to(device),1,3)
-            lidarImage = torch.transpose(lidarImage.to(device),1,3).type(torch.cuda.FloatTensor)
-            gtLidarImage = torch.transpose(gtLidarImage.to(device),1,3).type(torch.cuda.FloatTensor)
-            projectionMat = projectionMat.to(device)
-            gtTransfrom = gtTransfrom.to(device)
-
+            
+            
+            colorImage = colorImage.to(device)
+            lidarImage = lidarImage.to(device)
+            
             [predRot, predTrans] = model(colorImage, lidarImage)
 
             lossVal = loss([predRot, predTrans], colorImage, lidarImage, gtLidarImage, gtTransfrom, projectionMat)
@@ -192,10 +222,24 @@ def main():
             lossVal.backward()
 
             optimizer.step()
-            optimizer.zero_grad()
             
             
-            lossValueArray[dataBatch] = lossVal
+            lossValueArray.append(float(lossVal.detach().cpu().numpy()))
+        
+        # Write losses to csv
+        with open(os.path.join(lossLogDir,f"loss_Epoch_{epochs}.csv"),'w') as f:
+            writer = csv.writer(f)
+            writer.writerows(map(lambda x: [x], lossValueArray))
+            
+        # Keep track of mean loss
+        meanLossArray.append(sum(lossValueArray)/len(lossValueArray))
+            
+        
+        if _profile:
+            prof.stop()
+            print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=10))
+            
+        # need to write loss values to a file
 
         epochEndTime = time.time()
         logging.info(f"Epoch training elapsed time:{(epochEndTime - epochStartTime)/60.0:3f} mins")
@@ -212,8 +256,8 @@ def main():
         # Scheduler step
         logging.info("Stepping thru scheduler")
         scheduler.step(np.mean(eucledianDist))
-        print(f"Mean loss value = {lossVal}")
-        logging.info((f"Mean loss value = {lossVal}"))
+        print(f"Mean loss value = {meanLossArray[epochs]}")
+        logging.info((f"Mean loss value = {meanLossArray[epochs]}"))
         print(f"Epoch: {epochs}\t Mean SE3 Dist = {np.mean(SE3Dist):3f} \t Mean Eucledian Distance = {np.mean(eucledianDist):3f}")
         logging.info((f"Epoch: {epochs}\t Mean SE3 Dist = {np.mean(SE3Dist):3f} \t Mean Eucledian Distance = {np.mean(eucledianDist):3f}"))
         print(f"Mean Absolute Errors: Euler angles: x={np.mean(absEulerAngleErr,1)[0]:3f}\u00b0, y={np.mean(absEulerAngleErr,1)[1]:3f}\u00b0, z={np.mean(absEulerAngleErr,1)[2]:3f}\u00b0\
@@ -252,6 +296,11 @@ def main():
         if not previousfilePath == None:
             os.remove(previousfilePath)
         previousfilePath = checkPointFilePath
+        
+    # Write losses to csv
+    with open(os.path.join(lossLogDir,f"Mean_Loss_all_epochs.csv"),'w') as f:
+        writer = csv.writer(f)
+        writer.writerows(map(lambda x: [x], meanLossArray)) 
 
 
 

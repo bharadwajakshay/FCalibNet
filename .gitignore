@@ -172,3 +172,6 @@ Pipfile.lock
 *.pcd
 *.ply
 *.png
+
+# log dir
+logs/
