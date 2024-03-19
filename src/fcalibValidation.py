@@ -19,11 +19,11 @@ def valitation(model, dataLoader, device):
     for dataBatch, data in tqdm(enumerate(dataLoader,0),total=len(dataLoader)):
         
         colorImage, lidarImage, gtLidarImage, gtTransfrom, projectionMat = data
-        colorImage = torch.transpose(colorImage.to(device),1,3)
-        lidarImage = torch.transpose(lidarImage.to(device),1,3).type(torch.cuda.FloatTensor)
-        gtLidarImage = torch.transpose(gtLidarImage.to(device),1,3).type(torch.cuda.FloatTensor)
-        projectionMat = projectionMat.to(device).type(torch.cuda.FloatTensor)
-        gtTransfrom = gtTransfrom.to(device).type(torch.cuda.FloatTensor)
+        colorImage = colorImage.to(device)
+        lidarImage = lidarImage.to(device)
+        gtLidarImage = gtLidarImage.to(device)
+        projectionMat = projectionMat.to(device)
+        gtTransfrom = gtTransfrom.to(device)
         [predRot, predTrans] = model(colorImage, lidarImage)
         
         predRotMat = tensorTools.quaternion_to_matrix(predRot)
