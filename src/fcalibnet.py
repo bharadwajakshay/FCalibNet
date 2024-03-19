@@ -40,11 +40,13 @@ lossLogDir = os.path.join(config.logDir,'loss','-'.join((config.name,str(program
 if not os.path.exists(lossLogDir):
     os.makedirs(lossLogDir)
 
-torch.autograd.set_detect_anomaly(True)
+# torch.autograd.set_detect_anomaly(True)
+torch.backends.cudnn.benchmark = True
 
 from model.loss import getLoss
 
 _profile = False
+_testdata = False
 
 def main():
     
@@ -158,19 +160,21 @@ def main():
 
 
     logging.info(f"Loading dataloader. Datafile: {config.datasetFile}")
-    trainingData = dataLoader(config.datasetFile)
-    validationData = dataLoader(config.datasetFile, 'test') 
+    trainingData = dataLoader(config.datasetFile,'train', device=device, reducedList=True if _testdata else False)
+    validationData = dataLoader(config.datasetFile, 'test', device=device, reducedList=True if _testdata else False) 
     trainingDataLoader = torch.utils.data.DataLoader(trainingData,
                                                      batch_size=config.training['batchSize'],
                                                      shuffle=True,
-                                                     num_workers=10,
-                                                     drop_last=True)
+                                                     num_workers=5,
+                                                     drop_last=True,
+                                                     pin_memory=True)
     
     validatingDataLoader = torch.utils.data.DataLoader(validationData,
                                                      batch_size=config.training['batchSize'],
                                                      shuffle=True,
-                                                     num_workers=10,
-                                                     drop_last=True)
+                                                     num_workers=5,
+                                                     drop_last=True,
+                                                     pin_memory=True)
 
     monitorDist = 10000000
     previousfilePath = None
@@ -180,7 +184,7 @@ def main():
         # Start profiling
         prof = torch.profiler.profile(
             activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
-            record_shapes=True)
+            record_shapes=False)
     
     meanLossArray = []
     for epochs in range(loadedEpochs,config.training['epoch']):
@@ -203,16 +207,13 @@ def main():
         #  get your data
         lossValueArray = []
         for dataBatch, data in tqdm(enumerate(trainingDataLoader,0),total=len(trainingDataLoader)):
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             
             colorImage, lidarImage, gtLidarImage, gtTransfrom, projectionMat = data
-             
-            colorImage = torch.transpose(colorImage.to(device),1,3)
-            lidarImage = torch.transpose(lidarImage.to(device),1,3).type(torch.cuda.FloatTensor)
-            gtLidarImage = torch.transpose(gtLidarImage.to(device),1,3).type(torch.cuda.FloatTensor)
-            projectionMat = projectionMat.to(device).type(torch.cuda.FloatTensor)
-            gtTransfrom = gtTransfrom.to(device).type(torch.cuda.FloatTensor)
 
+            colorImage = colorImage.to(device)
+            lidarImage = lidarImage.to(device)
+            
             [predRot, predTrans] = model(colorImage, lidarImage)
 
             lossVal = loss([predRot, predTrans], colorImage, lidarImage, gtLidarImage, gtTransfrom, projectionMat)
@@ -220,7 +221,6 @@ def main():
             lossVal.backward()
 
             optimizer.step()
-            optimizer.zero_grad()
             
             
             lossValueArray.append(float(lossVal.detach().cpu().numpy()))
@@ -236,7 +236,7 @@ def main():
         
         if _profile:
             prof.stop()
-            print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=30))
+            print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=10))
             
         # need to write loss values to a file
 
