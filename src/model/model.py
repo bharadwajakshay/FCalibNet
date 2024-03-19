@@ -44,22 +44,6 @@ class fCalibNet(nn.Module):
         lidarFeatureMap = self.lidarEfficientNet(lidarImage)
         lidarFeatureMap = self.lidarUpScaleNet(lidarFeatureMap)
         
-
-        #reorganizedLiDARFeatureMap = torch.empty_like(colorFeatureMap).unsqueeze(2)
-        
-        #for idx in range(colorFeatureMap.shape[2],lidarFeatureMap.shape[2], 7):
-
-        #    reorganizedLiDARFeatureMap = torch.cat((reorganizedLiDARFeatureMap,
-        #                                lidarFeatureMap[:,:, idx - colorFeatureMap.shape[2]: idx].unsqueeze(2)), dim=2)
-        
-        #reorganizedLiDARFeatureMap = torch.cat((reorganizedLiDARFeatureMap,
-        #                                lidarFeatureMap[:,:, (lidarFeatureMap.shape[2]-colorFeatureMap.shape[2])-1: -1].unsqueeze(2)), dim=2) 
-        
-        #reorganizedLiDARFeatureMap = reorganizedLiDARFeatureMap [:,:,1:,:,:]
-        
-        
-        #stackedTensor = torch.cat((colorFeatureMap.unsqueeze(2),reorganizedLiDARFeatureMap), dim=2)
-        
         x = self.featureAnalysis(lidarFeatureMap, colorFeatureMap)
         x = self.featureMatching(x)
         x = x.view(x.shape[0],x.shape[1],-1)
