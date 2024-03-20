@@ -1,5 +1,5 @@
 import os
-name = "FCalib_w_RESNET_n_Crossattention"
+name = "FCalib_w_SWIN_CA"
 mode = "Train" # Train / # Evaluate
 datasetFile = "/home/akshay/kitti_Dataset_40_1/calibData.json"
 checkpointDir = os.path.join(os.getcwd(), 'checkpoints')
@@ -8,6 +8,9 @@ DDPT = False # Distributed Data Parallel Training
 DPT = False # Data Parallel Training
 modelParallel = False # Need this for Unet3D
 optimizer = "Adam" # 'Adam'/"SGD"
+architecture = 'swin' # options 'swin' / 'resnet'
+run_profiler = False
+use_TestData = True
 
 # Scheduler  deteails 
 # ROP = Reduce on Platue
@@ -15,11 +18,11 @@ scheduler = dict(
     name='MLR', # 'ROP'/'MLR'
     mode = 'min', # 'max'/'max'
     patience = 4, # integer values
-    step = [24,25]
+    step = [30,40]
 ) 
 training = dict(
-    batchSize = 30,
-    epoch = 30,
+    batchSize = 25,
+    epoch = 50,
     learningRate = 0.001,
     beta0 = 0.9,
     beta1 = 0.999,
@@ -41,8 +44,8 @@ chkPointFileName = '2024_2_3_21:18_ED_2.0538178968429563.pth'
     "GEODESIC" = Geodesic distance between the predicted and the target SO(3) rotations
 '''
 
-loss = ["GEODESIC","EUCTR"]
+loss = ["MANHATTAN","GEODESIC","EUCTR"]
 
 # Loss weight needs to be the same size as loss 
-lossWeight = [2,1]
+lossWeight = [10,2,1]
 

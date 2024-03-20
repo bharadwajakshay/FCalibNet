@@ -14,16 +14,25 @@ _debug = False
 
 
 class dataLoader(Dataset):
-    def __init__ (self, filename,  mode='train', device = 'cpu', reducedList = 'False'):
+    def __init__ (self, filename, arch='resnet',
+                        mode='train', device = 'cpu',
+                        reducedList = 'False'):
         logging.info(f"initializing data loader.")
 
         self.datafile = filename
-        self.colorImageHeight = 224
-        self.colorImageWidth = 740
+    
         with open(self.datafile,'r') as jsonFile:
             self.data = json.load(jsonFile)
             
         self.device = device
+        self.arch = arch
+
+        if self.arch == 'resnet':
+            self.colorImageHeight = 224
+            self.colorImageWidth = 740
+        elif self.arch == 'swin':
+            self.colorImageHeight = 256
+            self.colorImageWidth = 845
 
         if not reducedList:
             trainIdx = int(len(self.data)*0.8)
@@ -47,6 +56,7 @@ class dataLoader(Dataset):
         # Define preprocessing Pipeline
         self.imgTensorPreProc = transforms.Compose([
             transforms.ToTensor(),
+            transforms.Resize((self.colorImageHeight,self.colorImageWidth)),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
         
         self.ptCldPerProc =  transforms.Compose([transforms.ToTensor()])
@@ -136,8 +146,9 @@ class dataLoader(Dataset):
         transfromRT = np.asarray(sample['transformationMat'])
         projectMat = np.asarray(sample['projectionMat'])
                 
-        __, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename, self.colorImageHeight, self.colorImageWidth)
-        #__, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename)
+        #__, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename, self.colorImageHeight, self.colorImageWidth)
+        #__, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename, self.colorImageHeight)
+        __, __, srcClrImg = self.readimgfromfilePIL(trainImgFilename)
         colorImage = self.imgTensorPreProc(np.array(srcClrImg, dtype=np.float32)/255)
 
         trainPointCloud = self.readProjectionDataMemmap(trainProjectedPC)

@@ -1,4 +1,5 @@
 import torch.nn as nn
+import sys
 from model import efficientNet
 from model.crossFeatureMatching import crossFeatureMatching
 from model.featureAnalysis import featureAnalysis
@@ -9,23 +10,49 @@ from model.efficientNet import Conv2dNormActivation
 from collections import OrderedDict
 from torchinfo import summary
 from model.crossFeatureHighlight import crossFeatureHighlight
+#from mmdet3d.models.voxel_encoders import PillarFeatureNet
+import logging
 
 class fCalibNet(nn.Module):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, arch='resnet',*args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.colorEfficientNet = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.DEFAULT)
-        self.colorEfficientNet = torch.nn.Sequential(OrderedDict([*(list(self.colorEfficientNet.named_children())[:-2])]))
+        if arch == 'resnet':
+            self.arch = 'resnet'
+            self.colorEfficientNet = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.DEFAULT)
+            self.colorEfficientNet = torch.nn.Sequential(OrderedDict([*(list(self.colorEfficientNet.named_children())[:-2])]))
         
-        self.lidarEfficientNet = torchvision.models.resnet50()
-        # Replace the 1st layer to accept 4 channels
-        self.lidarEfficientNet.conv1 = nn.Conv2d(4, 64, kernel_size=(7,7), stride=(2,2), padding=(3,3), bias=False)
+            self.lidarEfficientNet = torchvision.models.resnet50()
+            # Replace the 1st layer to accept 4 channels
+            self.lidarEfficientNet.conv1 = nn.Conv2d(4, 64, kernel_size=(7,7), stride=(2,2), padding=(3,3), bias=False)
 
-        self.lidarEfficientNet = torch.nn.Sequential(OrderedDict([*(list(self.lidarEfficientNet.named_children())[:-2])]))
+            self.lidarEfficientNet = torch.nn.Sequential(OrderedDict([*(list(self.lidarEfficientNet.named_children())[:-2])]))
         
-        #TODO: This operation takes a lot of memory. This can be replaced by a 1x1 kernel.. Check if that works later
-        self.lidarUpScaleNet = nn.Sequential(*[nn.ConvTranspose2d(2048,2048,kernel_size=(3,3),stride=(2,2)),nn.ConvTranspose2d(2048,1024,kernel_size=(3,3),stride=(2,2))])
-        self.imageUpScaleNet = nn.Sequential(*[nn.ConvTranspose2d(2048,2048,kernel_size=(3,3),stride=(1,1)),nn.ConvTranspose2d(2048,1024,kernel_size=(3,3),stride=(1,1))])
+            #TODO: This operation takes a lot of memory. This can be replaced by a 1x1 kernel.. Check if that works later
+            self.lidarUpScaleNet = nn.Sequential(*[nn.ConvTranspose2d(2048,2048,kernel_size=(3,3),stride=(2,2)),nn.ConvTranspose2d(2048,1024,kernel_size=(3,3),stride=(2,2))])
+            self.imageUpScaleNet = nn.Sequential(*[nn.ConvTranspose2d(2048,2048,kernel_size=(3,3),stride=(1,1)),nn.ConvTranspose2d(2048,1024,kernel_size=(3,3),stride=(1,1))])
+
+        elif arch == 'swin':
+            self.arch = 'swin'
+            self.colorEfficientNet = torchvision.models.swin_v2_t(weights=torchvision.models.Swin_V2_T_Weights.DEFAULT)
+            self.colorEfficientNet = torch.nn.Sequential(OrderedDict([*(list(self.colorEfficientNet.named_children())[:-3])]))
+        
+            self.lidarEfficientNet = torchvision.models.swin_v2_t()
+            # Replace the 1st layer to accept 4 channels
+            self.lidarEfficientNet.features[0][0] = nn.Conv2d(4, 96, kernel_size=(4,4), stride=(4,4))
+
+            self.lidarEfficientNet = torch.nn.Sequential(OrderedDict([*(list(self.lidarEfficientNet.named_children())[:-3])]))
+        
+            #TODO: This operation takes a lot of memory. This can be replaced by a 1x1 kernel.. Check if that works later
+            self.lidarUpScaleNet = nn.Sequential(*[nn.ConvTranspose2d(768,1024,kernel_size=(3,3),stride=(2,2)),nn.ConvTranspose2d(1024,1024,kernel_size=(3,3),stride=(2,2))])
+            self.imageUpScaleNet = nn.Sequential(*[nn.ConvTranspose2d(768,1024,kernel_size=(2,2),stride=(1,1)),nn.ConvTranspose2d(1024,1024,kernel_size=(3,3),stride=(1,1))])
+        
+        else:
+            logging.error("Selected unsupported architecture. Exiting the program")
+            print("Selected unsupported architecture. Exiting the program",file=sys.stderr, **kwargs)
+            exit(-1)
+
+
         
         # self.featureAnalysis = featureAnalysis()
         self.featureAnalysis = crossFeatureHighlight()

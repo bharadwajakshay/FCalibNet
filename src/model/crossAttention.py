@@ -22,12 +22,12 @@ class crossAttention(nn.Module):
         k = self.K(cam.view(cam.shape[0],cam.shape[1],-1)).view(cam.shape)
         v = self.V(cam.view(cam.shape[0],cam.shape[1],-1)).view(cam.shape)
         
-        dots = torch.einsum('b c i d,b c j d->b c i j', q,k) * self.scale
+        dots = torch.einsum('a b c i,a b c j->a b i j', q,k) * self.scale
         
         att = dots.softmax(dim=-1)
         
-        out = torch.einsum('b c i d,b c k j->b c i j', att,v)
+        out = torch.einsum('a b i c,a b j c->a b j i', att,v)
         
-        out = self.out(out.view(out.shape[0],out.shape[1],-1)).view(out.shape)
+        out = self.out(out.reshape(out.shape[0],out.shape[1],-1)).view(out.shape)
         
         return (out)

@@ -45,8 +45,8 @@ torch.backends.cudnn.benchmark = True
 
 from model.loss import getLoss
 
-_profile = False
-_testdata = False
+_profile = config.run_profiler
+_testdata = config.use_TestData
 
 def main():
     
@@ -59,7 +59,7 @@ def main():
     torch.cuda.empty_cache()
 
     #define your model here 
-    model = fCalibNet()
+    model = fCalibNet(config.architecture)
 
     if torch.cuda.is_available():
         device = 'cuda'
@@ -160,8 +160,8 @@ def main():
 
 
     logging.info(f"Loading dataloader. Datafile: {config.datasetFile}")
-    trainingData = dataLoader(config.datasetFile,'train', device=device, reducedList=True if _testdata else False)
-    validationData = dataLoader(config.datasetFile, 'test', device=device, reducedList=True if _testdata else False) 
+    trainingData = dataLoader(config.datasetFile, arch=config.architecture, mode='train', device=device, reducedList=True if _testdata else False)
+    validationData = dataLoader(config.datasetFile, arch=config.architecture, mode='test', device=device, reducedList=True if _testdata else False) 
     trainingDataLoader = torch.utils.data.DataLoader(trainingData,
                                                      batch_size=config.training['batchSize'],
                                                      shuffle=True,
@@ -254,7 +254,12 @@ def main():
 
         # Scheduler step
         logging.info("Stepping thru scheduler")
-        scheduler.step(np.mean(eucledianDist))
+        
+        if config.scheduler['name'] == 'ROP':
+            scheduler.step(np.mean(eucledianDist))
+        else:
+            scheduler.step()
+
         print(f"Mean loss value = {meanLossArray[epochs]}")
         logging.info((f"Mean loss value = {meanLossArray[epochs]}"))
         print(f"Epoch: {epochs}\t Mean SE3 Dist = {np.mean(SE3Dist):3f} \t Mean Eucledian Distance = {np.mean(eucledianDist):3f}")
